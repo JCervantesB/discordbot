@@ -24,19 +24,26 @@ async function generateSceneNarrative(input: OrchestratorInput) {
 
   const prompt = [
     'Eres un narrador omnisciente de historias de fantasía/aventura.',
-    'Genera una escena narrativa coherente y literaria.',
+    'Genera una escena narrativa coherente, breve y descriptiva.',
     `Acción del personaje (${input.character.characterName}): "${input.action}"`,
     contextSummary ? `Contexto previo:\n${contextSummary}` : 'No hay escenas previas.',
     'Requisitos:',
     '- Perspectiva en tercera persona.',
-    '- Longitud 200-300 palabras.',
-    '- Incluye detalles sensoriales (sonidos, olores, texturas).',
+    '- Escena en un máximo de 2 párrafos.',
+    '- Cada párrafo con 2 a 4 frases.',
+    '- No más de 180 palabras en total.',
+    '- Incluye algunos detalles sensoriales (sonidos, olores, texturas).',
     '- Mantén tono épico/aventurero.',
-    '- Termina con una frase gancho que invite a continuar la historia.'
+    '- Termina con una frase gancho que invite al usuario con a realizar otra acción para continuar la historia.'
   ].join('\n');
 
   const narrative = await generateNarrative(prompt);
-  return narrative;
+  const paragraphs = narrative
+    .split(/\n{2,}/)
+    .map((p) => p.trim())
+    .filter((p) => p.length > 0);
+  const limited = paragraphs.slice(0, 3).join('\n\n');
+  return limited || narrative;
 }
 
 async function designImagePrompt(input: {
