@@ -12,8 +12,6 @@ import {
 } from '@/lib/scenes';
 import { generateNarrative } from '@/lib/venice-client';
 
-export const runtime = 'edge';
-
 const PersonajeSchema = z.object({
   nombre: z.string().min(1).max(50),
   descripcion: z.string().min(1).max(500)
