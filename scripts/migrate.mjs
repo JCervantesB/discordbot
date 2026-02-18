@@ -47,6 +47,32 @@ async function main() {
   await sql`CREATE INDEX IF NOT EXISTS idx_scenes_story_order ON scenes(story_id, scene_number DESC);`;
   await sql`CREATE INDEX IF NOT EXISTS idx_scenes_created ON scenes(story_id, created_at DESC);`;
 
+  await sql`CREATE TABLE IF NOT EXISTS manuscripts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    story_id UUID NOT NULL REFERENCES stories(id) ON DELETE CASCADE,
+    version INTEGER NOT NULL,
+    content TEXT NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(story_id, version)
+  );`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_manuscripts_story_version ON manuscripts(story_id, version DESC);`;
+
+  await sql`CREATE TABLE IF NOT EXISTS summaries (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    story_id UUID NOT NULL REFERENCES stories(id) ON DELETE CASCADE,
+    version INTEGER NOT NULL,
+    summary TEXT NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(story_id, version)
+  );`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_summaries_story_version ON summaries(story_id, version DESC);`;
+
+  await sql`CREATE TABLE IF NOT EXISTS synthesis_locks (
+    story_id UUID PRIMARY KEY,
+    locked_at TIMESTAMPTZ DEFAULT NOW(),
+    locked_by TEXT
+  );`;
+
   console.log('Tablas creadas/migradas correctamente');
   await sql.end({ timeout: 5 });
 }

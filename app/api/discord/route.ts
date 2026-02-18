@@ -10,7 +10,10 @@ import {
   findCharacterForUser,
   incrementStorySceneCount
 } from '@/lib/scenes';
-import { generateNarrative } from '@/lib/venice-client';
+import { orchestrateSceneGeneration } from '@/lib/story-orchestrator';
+import { acquireStoryLock, releaseStoryLock } from '@/lib/lock';
+import { loadCanonicalPRD, validateContribution, compileManuscript, summarizeManuscript } from '@/lib/narrator';
+import { sql } from 'drizzle-orm';
 
 const PersonajeSchema = z.object({
   nombre: z.string().min(1).max(50),
@@ -132,62 +135,85 @@ export async function POST(request: NextRequest) {
     }
 
     const recentScenes = await getRecentScenesByStory(story.id, 3);
-    const contextSummary = recentScenes
-      .map((s) => `#${s.sceneNumber}: ${s.narrative.slice(0, 140)}`)
-      .join('\n');
-
-    const prompt = [
-      'Eres un narrador omnisciente de historias de fantasía/aventura.',
-      'Genera una escena narrativa coherente y literaria.',
-      `Acción del personaje (${character.characterName}): "${parsed.data.accion}"`,
-      contextSummary ? `Contexto previo:\n${contextSummary}` : 'No hay escenas previas.',
-      'Requisitos:',
-      '- Perspectiva en tercera persona.',
-      '- Longitud 200-300 palabras.',
-      '- Incluye detalles sensoriales (sonidos, olores, texturas).',
-      '- Mantén tono épico/aventurero.',
-      '- Termina con una frase gancho que invite a continuar la historia.'
-    ].join('\n');
-
-    const narrative = await generateNarrative(prompt);
-    const sceneNumber = await getNextSceneNumberForStory(story.id);
-    const now = new Date();
-
-    const [scene] = await db
-      .insert(scenes)
-      .values({
-        storyId: story.id,
-        sceneNumber,
-        characterId: character.id,
-        userId,
-        userPrompt: parsed.data.accion,
-        narrative,
-        imageUrl: null,
-        location: null,
-        transitionType: 'main',
-        contextUsed: recentScenes.map((s) => s.sceneNumber),
-        createdAt: now
-      })
-      .returning();
-
-    await incrementStorySceneCount(story.id);
-
-    return json({
-      type: 4,
-      data: {
-        embeds: [
-          {
-            title: `📖 Escena #${scene.sceneNumber}`,
-            description: scene.narrative,
-            color: 0x2ecc71,
-            footer: {
-              text: `Generado por ${character.characterName}`
-            }
-          }
-        ]
-      }
+    const prd = await loadCanonicalPRD();
+    const validation = await validateContribution({
+      action: parsed.data.accion,
+      characterName: character.characterName,
+      recentScenes,
+      prd
     });
-  }
+    if (!validation.valid) {
+      return json({
+        type: 4,
+        data: { content: 'La acción no es coherente con el canon. Razones:\n' + validation.reasons }
+      });
+    }
 
+    const locked = await acquireStoryLock(story.id, userId);
+    if (!locked) {
+      return json({
+        type: 4,
+        data: { content: '⏳ La historia está en síntesis. Intenta de nuevo en unos segundos.' }
+      });
+    }
+    try {
+      const generation = await orchestrateSceneGeneration({
+        action: parsed.data.accion,
+        character,
+        recentScenes
+      });
+      const sceneNumber = await getNextSceneNumberForStory(story.id);
+      const now = new Date();
+      const [scene] = await db
+        .insert(scenes)
+        .values({
+          storyId: story.id,
+          sceneNumber,
+          characterId: character.id,
+          userId,
+          userPrompt: parsed.data.accion,
+          narrative: generation.narrative,
+          imageUrl: generation.imageUrl,
+          location: generation.imagePrompt,
+          transitionType: 'main',
+          contextUsed: recentScenes.map((s) => s.sceneNumber),
+          createdAt: now
+        })
+        .returning();
+      await incrementStorySceneCount(story.id);
+      const manuscript = await compileManuscript(story.id);
+      await db.execute(
+        sql`INSERT INTO manuscripts (story_id, version, content) VALUES (${story.id}::uuid, ${scene.sceneNumber}, ${manuscript}) ON CONFLICT (story_id, version) DO NOTHING`
+      );
+      if (scene.sceneNumber % 50 === 0) {
+        const summary = await summarizeManuscript(manuscript);
+        await db.execute(
+          sql`INSERT INTO summaries (story_id, version, summary) VALUES (${story.id}::uuid, ${scene.sceneNumber}, ${summary}) ON CONFLICT (story_id, version) DO NOTHING`
+        );
+      }
+      return json({
+        type: 4,
+        data: {
+          embeds: [
+            {
+              title: `📖 Escena #${scene.sceneNumber}`,
+              description: scene.narrative,
+              color: 0x2ecc71,
+              image:
+                scene.imageUrl && !scene.imageUrl.startsWith('data:')
+                  ? { url: scene.imageUrl }
+                  : undefined,
+              footer: {
+                text: `Generado por ${character.characterName}`
+              }
+            }
+          ]
+        }
+      });
+    } finally {
+      await releaseStoryLock(story.id);
+    }
+
+  }
   return json({ type: 4, data: { content: 'Comando no soportado' } });
 }
