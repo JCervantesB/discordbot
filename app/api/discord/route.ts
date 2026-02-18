@@ -109,6 +109,8 @@ export async function POST(request: NextRequest) {
   if (payload.type === 2 && payload.data?.name === 'generate') {
     const guildId: string = payload.guild_id;
     const userId: string = payload.member.user.id;
+    const applicationId: string = payload.application_id;
+    const interactionToken: string = payload.token;
     const optionsList = (payload.data.options || []) as Array<{ name: string; value: string }>;
     const options = Object.fromEntries(optionsList.map((o) => [o.name, o.value]));
     const parsed = GenerateSchema.safeParse({
@@ -134,84 +136,129 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    const recentScenes = await getRecentScenesByStory(story.id, 3);
-    const validation = await validateContribution({
-      action: parsed.data.accion,
-      characterName: character.characterName,
-      recentScenes
-    });
-    if (!validation.valid) {
-      return json({
-        type: 4,
-        data: { content: 'La acción no es coherente con el canon. Razones:\n' + validation.reasons }
-      });
-    }
-
-    const locked = await acquireStoryLock(story.id, userId);
-    if (!locked) {
-      return json({
-        type: 4,
-        data: { content: '⏳ La historia está en síntesis. Intenta de nuevo en unos segundos.' }
-      });
-    }
-    try {
-      const generation = await orchestrateSceneGeneration({
-        action: parsed.data.accion,
-        character,
-        recentScenes
-      });
-      const sceneNumber = await getNextSceneNumberForStory(story.id);
-      const now = new Date();
-      const [scene] = await db
-        .insert(scenes)
-        .values({
-          storyId: story.id,
-          sceneNumber,
-          characterId: character.id,
-          userId,
-          userPrompt: parsed.data.accion,
-          narrative: generation.narrative,
-          imageUrl: generation.imageUrl,
-          location: generation.imagePrompt,
-          transitionType: 'main',
-          contextUsed: recentScenes.map((s) => s.sceneNumber),
-          createdAt: now
-        })
-        .returning();
-      await incrementStorySceneCount(story.id);
-      const manuscript = await compileManuscript(story.id);
-      await db.execute(
-        sql`INSERT INTO manuscripts (story_id, version, content) VALUES (${story.id}::uuid, ${scene.sceneNumber}, ${manuscript}) ON CONFLICT (story_id, version) DO NOTHING`
-      );
-      if (scene.sceneNumber % 50 === 0) {
-        const summary = await summarizeManuscript(manuscript);
-        await db.execute(
-          sql`INSERT INTO summaries (story_id, version, summary) VALUES (${story.id}::uuid, ${scene.sceneNumber}, ${summary}) ON CONFLICT (story_id, version) DO NOTHING`
-        );
-      }
-      return json({
-        type: 4,
-        data: {
-          embeds: [
+    (async () => {
+      try {
+        const recentScenes = await getRecentScenesByStory(story.id, 3);
+        const validation = await validateContribution({
+          action: parsed.data.accion,
+          characterName: character.characterName,
+          recentScenes
+        });
+        if (!validation.valid) {
+          await fetch(
+            `https://discord.com/api/v10/webhooks/${applicationId}/${interactionToken}`,
             {
-              title: `📖 Escena #${scene.sceneNumber}`,
-              description: scene.narrative,
-              color: 0x2ecc71,
-              image:
-                scene.imageUrl && !scene.imageUrl.startsWith('data:')
-                  ? { url: scene.imageUrl }
-                  : undefined,
-              footer: {
-                text: `Generado por ${character.characterName}`
-              }
+              method: 'POST',
+              headers: { 'content-type': 'application/json' },
+              body: JSON.stringify({
+                content:
+                  'La acción no es coherente con el canon. Razones:\n' + validation.reasons
+              })
             }
-          ]
+          );
+          return;
         }
-      });
-    } finally {
-      await releaseStoryLock(story.id);
-    }
 
+        const locked = await acquireStoryLock(story.id, userId);
+        if (!locked) {
+          await fetch(
+            `https://discord.com/api/v10/webhooks/${applicationId}/${interactionToken}`,
+            {
+              method: 'POST',
+              headers: { 'content-type': 'application/json' },
+              body: JSON.stringify({
+                content:
+                  '⏳ La historia está en síntesis. Intenta de nuevo en unos segundos.'
+              })
+            }
+          );
+          return;
+        }
+        try {
+          const generation = await orchestrateSceneGeneration({
+            action: parsed.data.accion,
+            character,
+            recentScenes
+          });
+          const sceneNumber = await getNextSceneNumberForStory(story.id);
+          const now = new Date();
+          const [scene] = await db
+            .insert(scenes)
+            .values({
+              storyId: story.id,
+              sceneNumber,
+              characterId: character.id,
+              userId,
+              userPrompt: parsed.data.accion,
+              narrative: generation.narrative,
+              imageUrl: generation.imageUrl,
+              location: generation.imagePrompt,
+              transitionType: 'main',
+              contextUsed: recentScenes.map((s) => s.sceneNumber),
+              createdAt: now
+            })
+            .returning();
+          await incrementStorySceneCount(story.id);
+          const manuscript = await compileManuscript(story.id);
+          await db.execute(
+            sql`INSERT INTO manuscripts (story_id, version, content) VALUES (${story.id}::uuid, ${scene.sceneNumber}, ${manuscript}) ON CONFLICT (story_id, version) DO NOTHING`
+          );
+          if (scene.sceneNumber % 50 === 0) {
+            const summary = await summarizeManuscript(manuscript);
+            await db.execute(
+              sql`INSERT INTO summaries (story_id, version, summary) VALUES (${story.id}::uuid, ${scene.sceneNumber}, ${summary}) ON CONFLICT (story_id, version) DO NOTHING`
+            );
+          }
+          await fetch(
+            `https://discord.com/api/v10/webhooks/${applicationId}/${interactionToken}`,
+            {
+              method: 'POST',
+              headers: { 'content-type': 'application/json' },
+              body: JSON.stringify({
+                embeds: [
+                  {
+                    title: `📖 Escena #${scene.sceneNumber}`,
+                    description: scene.narrative,
+                    color: 0x2ecc71,
+                    image:
+                      scene.imageUrl && !scene.imageUrl.startsWith('data:')
+                        ? { url: scene.imageUrl }
+                        : undefined,
+                    footer: {
+                      text: `Generado por ${character.characterName}`
+                    }
+                  }
+                ]
+              })
+            }
+          );
+        } finally {
+          await releaseStoryLock(story.id);
+        }
+      } catch {
+        try {
+          await fetch(
+            `https://discord.com/api/v10/webhooks/${applicationId}/${interactionToken}`,
+            {
+              method: 'POST',
+              headers: { 'content-type': 'application/json' },
+              body: JSON.stringify({
+                content: 'Ocurrió un error al generar la escena.'
+              })
+            }
+          );
+        } catch {
+          // ignore
+        }
+      }
+    })();
+
+    return json({
+      type: 4,
+      data: {
+        content: '⏳ Generando tu escena, esto puede tardar unos segundos...'
+      }
+    });
   }
   return json({ type: 4, data: { content: 'Comando no soportado' } });
 }
