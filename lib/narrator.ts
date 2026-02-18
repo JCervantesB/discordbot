@@ -2,6 +2,8 @@ import { db } from '@/lib/db';
 import { scenes } from '@/drizzle/schema';
 import { generateNarrative } from '@/lib/venice-client';
 import { asc, eq } from 'drizzle-orm';
+import { readFile } from 'node:fs/promises';
+import path from 'node:path';
 
 type InconsistencyReport = {
   consistent: boolean;
@@ -100,9 +102,13 @@ export async function detectInconsistencies(input: {
 }
 
 export async function loadCanonicalPRD(): Promise<string> {
-  const res = await fetch('file:///d:/Proyectos/discord-storyapp/PRD.md');
-  if (!res.ok) return '';
-  return await res.text();
+  try {
+    const root = process.cwd();
+    const prdPath = path.join(root, 'PRD.md');
+    return await readFile(prdPath, 'utf8');
+  } catch {
+    return '';
+  }
 }
 
 export async function validateContribution(input: {
