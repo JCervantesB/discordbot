@@ -1,5 +1,6 @@
 import { generateNarrative } from '@/lib/venice-client';
 import { generateImageFromSinkIn } from '@/lib/sinkin-client';
+import { uploadImageToCloudinary } from '@/lib/cloudinary';
 import { type scenes, type characters as charactersTable } from '@/drizzle/schema';
 
 type Scene = typeof scenes.$inferSelect;
@@ -82,7 +83,10 @@ export async function orchestrateSceneGeneration(input: OrchestratorInput): Prom
 
   let imageUrl: string | null = null;
   try {
-    imageUrl = await generateImageFromSinkIn(imagePrompt);
+    const rawImage = await generateImageFromSinkIn(imagePrompt);
+    imageUrl = await uploadImageToCloudinary(rawImage, {
+      folder: 'discord-storyapp/scenes'
+    });
   } catch {
     imageUrl = null;
   }
