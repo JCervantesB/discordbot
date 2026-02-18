@@ -2,8 +2,43 @@ import { db } from '@/lib/db';
 import { scenes } from '@/drizzle/schema';
 import { generateNarrative } from '@/lib/venice-client';
 import { asc, eq } from 'drizzle-orm';
-import { readFile } from 'node:fs/promises';
-import path from 'node:path';
+
+export type NarratorConfig = {
+  language: 'es' | 'en';
+  tone: string;
+  genre: string;
+  person: 'tercera' | 'primera';
+  narrativeWordsMin?: number;
+  narrativeWordsMax?: number;
+  validationMaxActionChars?: number;
+  styleGuidelines?: string[];
+  coherenceDirectives?: string[];
+  summaryLengthLines?: number;
+};
+
+export function defaultNarratorConfig(): NarratorConfig {
+  return {
+    language: 'es',
+    tone: 'épico',
+    genre: 'aventura',
+    person: 'tercera',
+    narrativeWordsMin: 180,
+    narrativeWordsMax: 320,
+    validationMaxActionChars: 300,
+    styleGuidelines: [
+      'Detalles sensoriales',
+      'Transiciones claras',
+      'Descripciones precisas de escenarios',
+      'Evitar jerga técnica'
+    ],
+    coherenceDirectives: [
+      'Conservar continuidad con las últimas escenas',
+      'Evitar contradicciones de eventos',
+      'Respetar el desarrollo de personajes'
+    ],
+    summaryLengthLines: 10
+  };
+}
 
 type InconsistencyReport = {
   consistent: boolean;
@@ -62,19 +97,13 @@ export async function detectInconsistencies(input: {
   action: string;
   characterName: string;
   recentScenes: Array<{ sceneNumber: number; narrative: string }>;
-  prd: string;
 }): Promise<InconsistencyReport> {
   const temporal: string[] = [];
   const character: string[] = [];
   const canonical: string[] = [];
 
-  const prdText = input.prd || '';
   const actionText = input.action || '';
   const name = input.characterName || '';
-
-  if (name && prdText && !containsWord(prdText, name)) {
-    character.push(`El personaje ${name} no figura en el canon.`);
-  }
 
   const lastDeath = input.recentScenes.some((s) => hasDeathMarker(s.narrative, name));
   const revivalInAction = hasRevivalMarker(actionText);
@@ -101,21 +130,46 @@ export async function detectInconsistencies(input: {
   return { consistent, temporal, character, canonical };
 }
 
-export async function loadCanonicalPRD(): Promise<string> {
-  try {
-    const root = process.cwd();
-    const prdPath = path.join(root, 'PRD.md');
-    return await readFile(prdPath, 'utf8');
-  } catch {
-    return '';
-  }
+function buildValidationPrompt(
+  input: {
+    action: string;
+    characterName: string;
+    recentScenes: Array<{ sceneNumber: number; narrative: string }>;
+  },
+  config: NarratorConfig,
+  extraRules?: string[]
+) {
+  const rules = [
+    config.person === 'tercera' ? 'Narración en tercera persona.' : 'Narración en primera persona.',
+    `Acción <= ${config.validationMaxActionChars ?? 300} caracteres.`,
+    'Mantén coherencia con las últimas escenas.',
+    ...(config.coherenceDirectives ?? []),
+    ...(extraRules ?? [])
+  ].join('\n');
+  const context = input.recentScenes
+    .map((s) => `#${s.sceneNumber}: ${s.narrative.slice(0, 200)}`)
+    .join('\n');
+  const prompt = [
+    'Eres un verificador de coherencia narrativa.',
+    'Devuelve "VALID" o "INVALID" y en caso de inválido lista razones breves.',
+    '',
+    'Reglas:',
+    rules,
+    '',
+    'Últimas escenas:',
+    context || 'Sin escenas previas.',
+    '',
+    `Acción propuesta por ${input.characterName}: "${input.action}"`,
+    '',
+    `Idioma: ${config.language}`
+  ].join('\n');
+  return prompt;
 }
 
 export async function validateContribution(input: {
   action: string;
   characterName: string;
   recentScenes: Array<{ sceneNumber: number; narrative: string }>;
-  prd: string;
 }) {
   const report = await detectInconsistencies(input);
   if (!report.consistent) {
@@ -126,36 +180,59 @@ export async function validateContribution(input: {
     ].join('\n');
     return { valid: false, reasons };
   }
-  const rules = [
-    'Debe ser en tercera persona.',
-    'Longitud entre 1 y 300 caracteres.',
-    'No contradice eventos clave definidos en el PRD.',
-    'Mantiene coherencia con las últimas escenas.'
-  ].join('\n');
-
-  const prompt = [
-    'Eres un verificador de coherencia narrativa.',
-    'Devuelve "VALID" o "INVALID" y en caso de inválido lista razones breves.',
-    '',
-    'Reglas:',
-    rules,
-    '',
-    'PRD:',
-    input.prd.slice(0, 4000),
-    '',
-    'Últimas escenas:',
-    input.recentScenes
-      .map((s) => `#${s.sceneNumber}: ${s.narrative.slice(0, 200)}`)
-      .join('\n'),
-    '',
-    `Acción propuesta por ${input.characterName}: "${input.action}"`
-  ].join('\n');
+  const cfg = defaultNarratorConfig();
+  const prompt = buildValidationPrompt(input, cfg);
 
   const result = await generateNarrative(prompt);
   const txt = result.trim().toUpperCase();
   const valid = txt.startsWith('VALID');
   const reasons = valid ? [] : result;
   return { valid, reasons };
+}
+
+function buildScenePrompt(
+  input: {
+    action: string;
+    characterName: string;
+    recentScenes: Array<{ sceneNumber: number; narrative: string }>;
+  },
+  config: NarratorConfig
+) {
+  const contextSummary = input.recentScenes
+    .map((s) => `#${s.sceneNumber}: ${s.narrative.slice(0, 160)}`)
+    .join('\n');
+  const guidelines = (config.styleGuidelines ?? []).map((g) => `- ${g}`).join('\n');
+  const minWords = config.narrativeWordsMin ?? 180;
+  const maxWords = config.narrativeWordsMax ?? 320;
+  const prompt = [
+    'Eres un narrador omnisciente.',
+    `Género: ${config.genre}.`,
+    `Tono: ${config.tone}.`,
+    `Idioma: ${config.language}.`,
+    config.person === 'tercera' ? 'Narración en tercera persona.' : 'Narración en primera persona.',
+    `Longitud ${minWords}-${maxWords} palabras.`,
+    `Acción del personaje (${input.characterName}): "${input.action}"`,
+    contextSummary ? `Contexto previo:\n${contextSummary}` : 'Sin escenas previas.',
+    'Guías de estilo:',
+    guidelines || '-',
+    'Termina con una frase gancho que invite a continuar la historia.'
+  ].join('\n');
+  return prompt;
+}
+
+export async function generateSceneWithConfig(input: {
+  action: string;
+  characterName: string;
+  recentScenes: Array<{ sceneNumber: number; narrative: string }>;
+  config?: NarratorConfig;
+}) {
+  const cfg = input.config ?? defaultNarratorConfig();
+  const prompt = buildScenePrompt(
+    { action: input.action, characterName: input.characterName, recentScenes: input.recentScenes },
+    cfg
+  );
+  const narrative = await generateNarrative(prompt);
+  return narrative;
 }
 
 export async function compileManuscript(storyId: string) {

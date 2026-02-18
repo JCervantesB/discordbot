@@ -4,7 +4,7 @@ import { scenes } from '@/drizzle/schema';
 import { getOrCreateStory } from '@/lib/stories';
 import { findCharacterForUser, getNextSceneNumberForStory, getRecentScenesByStory, incrementStorySceneCount } from '@/lib/scenes';
 import { orchestrateSceneGeneration } from '@/lib/story-orchestrator';
-import { loadCanonicalPRD, validateContribution, compileManuscript, summarizeManuscript } from '@/lib/narrator';
+import { validateContribution, compileManuscript, summarizeManuscript } from '@/lib/narrator';
 import { acquireStoryLock, releaseStoryLock } from '@/lib/lock';
 import { sql } from 'drizzle-orm';
 
@@ -28,12 +28,10 @@ export async function POST(request: NextRequest) {
     const character = await findCharacterForUser(story.id, userId);
     if (!character) return json({ error: 'Debes registrar personaje primero' }, 400);
     const recentScenes = await getRecentScenesByStory(story.id, 3);
-    const prd = await loadCanonicalPRD();
     const validation = await validateContribution({
       action,
       characterName: character.characterName,
-      recentScenes,
-      prd
+      recentScenes
     });
     if (!validation.valid) {
       return json({ error: 'INVALID', reasons: validation.reasons }, 422);

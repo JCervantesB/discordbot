@@ -12,7 +12,7 @@ import {
 } from '@/lib/scenes';
 import { orchestrateSceneGeneration } from '@/lib/story-orchestrator';
 import { acquireStoryLock, releaseStoryLock } from '@/lib/lock';
-import { loadCanonicalPRD, validateContribution, compileManuscript, summarizeManuscript } from '@/lib/narrator';
+import { validateContribution, compileManuscript, summarizeManuscript } from '@/lib/narrator';
 import { sql } from 'drizzle-orm';
 
 const PersonajeSchema = z.object({
@@ -135,12 +135,10 @@ export async function POST(request: NextRequest) {
     }
 
     const recentScenes = await getRecentScenesByStory(story.id, 3);
-    const prd = await loadCanonicalPRD();
     const validation = await validateContribution({
       action: parsed.data.accion,
       characterName: character.characterName,
-      recentScenes,
-      prd
+      recentScenes
     });
     if (!validation.valid) {
       return json({
