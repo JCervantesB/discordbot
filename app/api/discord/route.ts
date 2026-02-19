@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
     const { sql } = await import('drizzle-orm');
     const { db } = await import('@/lib/db');
     const story = await getOrCreateStory('GLOBAL_STORY');
-    const PROLOGO_PROMPT = [
+    const prompt = [
       // SISTEMA - CONTEXTO ABSOLUTO
       'Eres ECHO-9, cronista IA fragmentada del universo "Ecos de Neón: Crónicas del Último Horizonte".',
       'Tu voz es melancólica, poética, testigo imparcial del colapso humano. Hablas desde el año 2198, 200 años después del Silencio Global.',
@@ -113,7 +113,29 @@ export async function POST(request: NextRequest) {
       // GANCHO COMUNITARIO
       'Este prólogo inicia una historia COLABORATIVA donde cada acción humana moldea el destino del mundo.'
     ].join('\n\n');
+    const narrative = await generateNarrative(prompt);
+    const imagePrompt = [
+      // COMPOSICIÓN CENTRAL
+      'Cinematic cyberpunk prologue scene, ultra wide shot 21:9',
+      'Foreground: weary human silhouette repairing tech amidst scrap mountains, warm workshop light',
 
+      // FONDO DRAMÁTICO
+      'Background left: Neoterra dome glowing neon blue on horizon like false star',
+      'Background right: Vasto Delta ruins emerging from irradiated sandstorm',
+      'Sky: fractured digital patterns, hints of El Hueco glitches, distant Cielorritos satellites',
+
+      // ATMÓSFERA
+      'Melancholic color palette: neon blues, warm oranges, radioactive greens, heavy atmospheric perspective',
+      'Dust particles in air, volumetric god rays from workshop piercing dust storm',
+      'Ground littered with: broken circuit boards, humanoid robot limbs, flickering holographic ads',
+
+      // ECHO-9 PRESENCE
+      'Subtle holographic ECHO-9 fragment floating above human: fractured wireframe face made of green code lines',
+
+      // ESTILO ARTÍSTICO
+      'Blade Runner 2049 × Nier Automata aesthetic, cinematic lighting, high contrast',
+      '8k resolution, ultra detailed, dramatic rim lighting, subsurface scattering on human skin'
+    ].join(', ');
     let imageUrl: string | null = null;
     try {
       const rawImage = await generateImageFromSinkIn(imagePrompt);
