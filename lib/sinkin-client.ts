@@ -1,13 +1,10 @@
-const defaultApiUrl = process.env.SINKIN_API_URL || '';
-const defaultModelId = process.env.SINKIN_MODEL_ID || 'JWknjgr';
+const defaultApiUrl = 'https://api.sinkin.ai/v1/generate';
+const defaultModelId = 'JWknjgr';
 
 function assertEnv() {
   const accessToken = process.env.SINKIN_ACCESS_TOKEN;
   if (!accessToken) {
     throw new Error('SINKIN_ACCESS_TOKEN no configurado');
-  }
-  if (!defaultApiUrl) {
-    throw new Error('SINKIN_API_URL no configurado');
   }
   return accessToken;
 }
