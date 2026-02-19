@@ -59,8 +59,8 @@ export async function generateImageFromSinkIn(prompt: string) {
     access_token: accessToken,
     model_id: defaultModelId,
     prompt: sanitizedPrompt,
-    width: 1024,
-    height: 1024,
+    width: 512,
+    height: 512,
     use_default_neg: 'true',
     num_images: 1
   };

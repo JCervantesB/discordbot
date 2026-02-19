@@ -333,7 +333,7 @@ export async function POST(request: NextRequest) {
               sceneNumber,
               characterId: character.id,
               userId,
-              userPrompt: parsed.data.accion,
+              userPrompt: parsed.data.action,
               narrative: generation.narrative,
               imageUrl: generation.imageUrl,
               location: character.currentRegionSlug || generation.imagePrompt,
