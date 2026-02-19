@@ -74,50 +74,79 @@ async function generateSceneNarrative(input: OrchestratorInput) {
 async function designImagePrompt(input: {
   action: string;
   characterName: string;
+  characterDescription: string;
   narrative: string;
   regionSlug?: string | null;
   regionPromptImage?: string | null;
   eventType?: string;
   eventImageInstruction?: string;
-  professionName?: string | null;
   professionClothing?: string | null;
+  enemyName?: string | null;
+  enemyDescription?: string | null;
 }) {
   logStage({ event: 'orchestrator', stage: 'prompt_start' });
   const regionImageStyle = input.regionPromptImage || '';
-  const regionAtmosphereHints: Record<string, string> = {
-    neoterra: 'night neon under dome, clinical geometry, cold blue light',
-    restos_grisaceos: 'warm dusty light, scrap tech, solar panels, wind',
-    vasto_delta: 'foggy horizon, emergent submarine ruins, eerie anomalies',
-    el_hueco: 'surreal mixed reality, holographic distortions, glitch pulses',
-    cielorritos: 'thin atmosphere, cold daylight, orbital ruins and fragile bridges'
-  };
-  const regionHint =
-    (input.regionSlug && regionAtmosphereHints[input.regionSlug]) || '';
+  const characterVisual = [
+    `Character: ${input.characterName}`,
+    input.professionClothing ? `Outfit: ${input.professionClothing}` : '',
+    input.characterDescription ? `Appearance: ${input.characterDescription}` : ''
+  ]
+    .filter((part) => part.length > 0)
+    .join('. ');
+  const enemyVisual =
+    input.enemyName || input.enemyDescription
+      ? [
+          input.enemyName ? `Enemy: ${input.enemyName}` : '',
+          input.enemyDescription ? `EnemyAppearance: ${input.enemyDescription}` : ''
+        ]
+          .filter((part) => part.length > 0)
+          .join('. ')
+      : '';
+  const eventFocusLines: string[] = [];
+  if (input.eventType === 'hostile_encounter' && (input.enemyName || input.enemyDescription)) {
+    eventFocusLines.push(
+      '- Focus on the confrontation between character and enemy in the same frame.',
+      '- The enemy design must match the described enemy and feel dangerous.'
+    );
+  } else if (input.eventType === 'environmental_hazard') {
+    eventFocusLines.push(
+      '- Emphasize the environmental hazard as the main danger; do not invent extra enemies.'
+    );
+  } else if (input.eventType === 'rest_refuge') {
+    eventFocusLines.push(
+      '- Emphasize a calm but fragile refuge; no overt enemies should appear.'
+    );
+  } else if (input.eventType === 'resource_find' || input.eventType === 'equipment_gain') {
+    eventFocusLines.push(
+      '- Highlight the discovered resource or equipment as the main visual focal point.'
+    );
+  }
   const prompt = [
-    'You are a visual scene designer for a fantasy story.',
-    'Based on the following narrative and character action, write a single concise text-to-image prompt.',
+    'You are a concept artist creating a detailed text-to-image prompt for a single frame of a graphic novel.',
+    'The image must clearly show the main character, the environment and any visible enemy.',
     'Requirements:',
     '- English only.',
-    '- Max 200 characters.',
-    '- No line breaks.',
-    '- Focus on visual elements: setting, mood, lighting, style.',
-    '- Do not include camera jargon or text overlays.',
-    input.eventType ? `Event: ${input.eventType}` : '',
-    input.eventImageInstruction ? `EventVisual: ${input.eventImageInstruction}` : '',
-    regionHint ? `RegionAtmosphere: ${regionHint}` : '',
-    regionImageStyle ? `RegionStyle: ${regionImageStyle}` : '',
-    input.professionName ? `Profession: ${input.professionName}` : '',
-    input.professionClothing ? `CharacterOutfit: ${input.professionClothing}` : '',
-    `Character name: ${input.characterName}`,
+    '- One or two short sentences, maximum 320 characters total.',
+    '- Explicitly describe the character body, clothing, gear and posture.',
+    '- Use the environment description as the physical stage of the scene.',
+    '- If there is an enemy, describe its body and threat clearly in the same composition.',
+    '- Avoid abstract phrases about colors or energy; focus on concrete objects and silhouettes.',
+    '- Do not include camera jargon or on-screen text.',
+    ...eventFocusLines,
+    input.eventType ? `EventType: ${input.eventType}` : '',
+    // Environment must be built only from regionPromptImage
+    regionImageStyle ? `Environment: ${regionImageStyle}` : '',
+    characterVisual,
+    enemyVisual,
     `Action: ${input.action}`,
-    'Narrative:',
+    'Narrative in Spanish:',
     input.narrative
   ].join('\n');
 
   try {
     const raw = await generateNarrative(prompt);
     const singleLine = raw.replace(/\s+/g, ' ').trim();
-    const limited = singleLine.slice(0, 200);
+    const limited = singleLine.slice(0, 320);
     logStage({ event: 'orchestrator', stage: 'prompt_done' });
     return limited;
   } catch {
@@ -147,13 +176,15 @@ export async function orchestrateSceneGeneration(input: OrchestratorInput): Prom
   const imagePrompt = await designImagePrompt({
     action: input.action,
     characterName: input.character.characterName,
+    characterDescription: input.character.description,
     narrative,
     regionSlug: input.character.currentRegionSlug,
     regionPromptImage: region?.promptImage || null,
     eventType: eventContext.type,
     eventImageInstruction: eventContext.imageInstruction,
-    professionName: profession?.name || null,
-    professionClothing: profession?.clothingDescription || null
+    professionClothing: profession?.clothingDescription || null,
+    enemyName: eventContext.enemy?.name ?? null,
+    enemyDescription: eventContext.enemy?.description ?? null
   });
 
   let imageUrl: string | null = null;
