@@ -92,6 +92,7 @@ const storyStartCommand = {
 async function main() {
   const token = process.env.DISCORD_BOT_TOKEN;
   const appId = process.env.DISCORD_APPLICATION_ID;
+  const guildId = process.env.DISCORD_GUILD_ID;
   if (!token || !appId) {
     throw new Error('Faltan DISCORD_BOT_TOKEN o DISCORD_APPLICATION_ID');
   }
@@ -99,7 +100,15 @@ async function main() {
   await rest.put(Routes.applicationCommands(appId), {
     body: [characterCommand, generateCommand, storyCommand, storyStartCommand]
   });
-  console.log('Comandos registrados correctamente');
+  console.log('Comandos globales registrados correctamente');
+  if (guildId) {
+    await rest.put(Routes.applicationGuildCommands(appId, guildId), {
+      body: [characterCommand, generateCommand, storyCommand, storyStartCommand]
+    });
+    console.log(`Comandos de guild ${guildId} registrados correctamente`);
+  } else {
+    console.log('DISCORD_GUILD_ID no definido: solo registro global (puede tardar en propagarse)');
+  }
 }
 
 main().catch((e) => {

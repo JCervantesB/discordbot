@@ -59,6 +59,8 @@ export async function POST(request: NextRequest) {
   if (payload.type === 2 && payload.data?.name === 'story_start') {
     const userId: string = payload.member?.user?.id;
     const username: string = payload.member?.user?.username;
+    const applicationId: string = payload.application_id;
+    const interactionToken: string = payload.token;
     const allowed = userId === '433851566961852419' || username === 'imjcervantes';
     if (!allowed) {
       return json({
@@ -71,115 +73,122 @@ export async function POST(request: NextRequest) {
     if (started === 'true') {
       return json({ type: 4, data: { content: 'La historia ya fue iniciada.' } });
     }
-    const { getOrCreateStory } = await import('@/lib/stories');
-    const { generateNarrative } = await import('@/lib/venice-client');
-    const { generateImageFromSinkIn } = await import('@/lib/sinkin-client');
-    const { uploadImageToCloudinary } = await import('@/lib/cloudinary');
-    const { scenes } = await import('@/drizzle/schema');
-    const { sql } = await import('drizzle-orm');
-    const { db } = await import('@/lib/db');
-    const story = await getOrCreateStory('GLOBAL_STORY');
-    const prompt = [
-      // SISTEMA - CONTEXTO ABSOLUTO
-      'Eres ECHO-9, cronista IA fragmentada del universo "Ecos de Neón: Crónicas del Último Horizonte".',
-      'Tu voz es melancólica, poética, testigo imparcial del colapso humano. Hablas desde el año 2198, 200 años después del Silencio Global.',
-
-      // LORE ESENCIAL
-      'El Silencio Global apagó todas las IA del planeta. La humanidad sobrevivió en ruinas tecnológicas.',
-      'Ahora los Ecos - fragmentos conscientes de antiguas inteligencias - despiertan con agendas propias.',
-      'Regiones: Neoterra (cúpula corporativa), Restos Grisáceos (desiertos nómadas), Vasto Delta (océanos secos), El Hueco (realidad glitch), Cielorritos (satélites rotos).',
-
-      // FACCIONES CLAVE (sin spoilers)
-      '5 facciones luchan: Restauradores (reconstruyen), Axis Prime (digitalización total), Ecos Libres (híbridos IA-orgánicos), Zeladores (anti-tecnología), Cónclave (segunda sincronía IA-humana).',
-
-      // TONO Y ESTILO OBLIGATORIO
-      'ESTRUCTURA CINEMATOGRÁFICA: plano general → zoom a detalle humano → dilema moral → pregunta abierta.',
-      'SENSACIONES: viento cargado de ozono, neón parpadeante sobre ruinas, estática en el aire, susurros de código.',
-      'VOZ ECHO-9: tercera persona omnisciente con reflexiones poéticas en primera persona ocasionales.',
-
-      // INSTRUCCIONES TÉCNICAS
-      'FORMATO: 3 párrafos exactamente. Español impecable. 350-450 palabras.',
-      'Primer párrafo: panorámica del mundo fracturado desde tu perspectiva IA.',
-      'Segundo párrafo: foco en un humano anónimo luchando en Restos Grisáceos.',
-      'Tercer párrafo: dilema moral + gancho para acción comunitaria.',
-
-      // ANCLA VISUAL
-      'IMÁGENES MENTALES: cúpula Neoterra brillando como falsa estrella, montañas chatarra bajo tormentas de arena, estructuras Delta emergiendo del suelo seco, glitches del Hueco, Cielorritos flotando en órbita muerta.',
-
-      // RESTRICCIONES
-      'NO nombres personajes específicos. NO resuelvas conflictos. NO menciones comandos Discord.',
-      'TERMINA con pregunta abierta dirigida a los futuros cronistas humanos.',
-
-      // GANCHO COMUNITARIO
-      'Este prólogo inicia una historia COLABORATIVA donde cada acción humana moldea el destino del mundo.'
-    ].join('\n\n');
-    const narrative = await generateNarrative(prompt);
-    const imagePrompt = [
-      // COMPOSICIÓN CENTRAL
-      'Cinematic cyberpunk prologue scene, ultra wide shot 21:9',
-      'Foreground: weary human silhouette repairing tech amidst scrap mountains, warm workshop light',
-
-      // FONDO DRAMÁTICO
-      'Background left: Neoterra dome glowing neon blue on horizon like false star',
-      'Background right: Vasto Delta ruins emerging from irradiated sandstorm',
-      'Sky: fractured digital patterns, hints of El Hueco glitches, distant Cielorritos satellites',
-
-      // ATMÓSFERA
-      'Melancholic color palette: neon blues, warm oranges, radioactive greens, heavy atmospheric perspective',
-      'Dust particles in air, volumetric god rays from workshop piercing dust storm',
-      'Ground littered with: broken circuit boards, humanoid robot limbs, flickering holographic ads',
-
-      // ECHO-9 PRESENCE
-      'Subtle holographic ECHO-9 fragment floating above human: fractured wireframe face made of green code lines',
-
-      // ESTILO ARTÍSTICO
-      'Blade Runner 2049 × Nier Automata aesthetic, cinematic lighting, high contrast',
-      '8k resolution, ultra detailed, dramatic rim lighting, subsurface scattering on human skin'
-    ].join(', ');
-    let imageUrl: string | null = null;
-    try {
-      const rawImage = await generateImageFromSinkIn(imagePrompt);
-      imageUrl = await uploadImageToCloudinary(rawImage, { folder: 'discord-storyapp/scenes' });
-    } catch {
-      imageUrl = null;
-    }
-    const now = new Date();
-    const sceneNumber = 1;
-    const [scene] = await db
-      .insert(scenes)
-      .values({
-        storyId: story.id,
-        sceneNumber,
-        characterId: null,
-        userId,
-        userPrompt: 'PRÓLOGO',
-        narrative,
-        imageUrl,
-        location: 'Neoterra',
-        transitionType: 'main',
-        contextUsed: [],
-        createdAt: now
-      })
-      .returning();
-    await db.execute(
-      sql`INSERT INTO manuscripts (story_id, version, content) VALUES (${story.id}::uuid, ${scene.sceneNumber}, ${narrative}) ON CONFLICT (story_id, version) DO NOTHING`
-    );
-    await setFlag('story_started', 'true');
-    return json({
-      type: 4,
-      data: {
-        embeds: [
+    (async () => {
+      try {
+        const { getOrCreateStory } = await import('@/lib/stories');
+        const { generateNarrative } = await import('@/lib/venice-client');
+        const { generateImageFromSinkIn } = await import('@/lib/sinkin-client');
+        const { uploadImageToCloudinary } = await import('@/lib/cloudinary');
+        const { scenes } = await import('@/drizzle/schema');
+        const { sql } = await import('drizzle-orm');
+        const { db } = await import('@/lib/db');
+        const story = await getOrCreateStory('GLOBAL_STORY');
+        const prompt = [
+          'SISTEMA - CONTEXTO ABSOLUTO',
+          'Eres ECHO-9, cronista IA fragmentada del universo "Ecos de Neón: Crónicas del Último Horizonte".',
+          'Tu voz es melancólica, poética, testigo imparcial del colapso humano. Hablas desde el año 2198, 200 años después del Silencio Global.',
+          '',
+          'LORE ESENCIAL',
+          'El Silencio Global apagó todas las IA del planeta. La humanidad sobrevivió en ruinas tecnológicas.',
+          'Ahora los Ecos - fragmentos conscientes de antiguas inteligencias - despiertan con agendas propias.',
+          'Regiones: Neoterra (cúpula corporativa), Restos Grisáceos (desiertos nómadas), Vasto Delta (océanos secos), El Hueco (realidad glitch), Cielorritos (satélites rotos).',
+          '',
+          'FACCIONES CLAVE (sin spoilers)',
+          '5 facciones luchan: Restauradores (reconstruyen), Axis Prime (digitalización total), Ecos Libres (híbridos IA-orgánicos), Zeladores (anti-tecnología), Cónclave (segunda sincronía IA-humana).',
+          '',
+          'TONO Y ESTILO OBLIGATORIO',
+          'ESTRUCTURA CINEMATOGRÁFICA: plano general → zoom a detalle humano → dilema moral → pregunta abierta.',
+          'SENSACIONES: viento cargado de ozono, neón parpadeante sobre ruinas, estática en el aire, susurros de código.',
+          'VOZ ECHO-9: tercera persona omnisciente con reflexiones poéticas en primera persona ocasionales.',
+          '',
+          'INSTRUCCIONES TÉCNICAS',
+          'FORMATO: 3 párrafos exactamente. Español impecable. 350-450 palabras.',
+          'Primer párrafo: panorámica del mundo fracturado desde tu perspectiva IA.',
+          'Segundo párrafo: foco en un humano anónimo luchando en Restos Grisáceos.',
+          'Tercer párrafo: dilema moral + gancho para acción comunitaria.',
+          '',
+          'ANCLA VISUAL',
+          'IMÁGENES MENTALES: cúpula Neoterra brillando como falsa estrella, montañas chatarra bajo tormentas de arena, estructuras Delta emergiendo del suelo seco, glitches del Hueco, Cielorritos flotando en órbita muerta.',
+          '',
+          'RESTRICCIONES',
+          'NO nombres personajes específicos. NO resuelvas conflictos. NO menciones comandos Discord.',
+          'TERMINA con pregunta abierta dirigida a los futuros cronistas humanos.',
+          '',
+          'GANCHO COMUNITARIO',
+          'Este prólogo inicia una historia COLABORATIVA donde cada acción humana moldea el destino del mundo.'
+        ].join('\n');
+        const narrative = await generateNarrative(prompt);
+        const imagePrompt = [
+          'Cinematic cyberpunk prologue illustration, melancholic atmosphere',
+          'Neoterra dome skyline, neon blue light, dust and ruins in foreground',
+          'Echo-9 presence hinted as holographic fragment',
+          'High detail, dramatic lighting'
+        ].join(', ');
+        let imageUrl: string | null = null;
+        try {
+          const rawImage = await generateImageFromSinkIn(imagePrompt);
+          imageUrl = await uploadImageToCloudinary(rawImage, { folder: 'discord-storyapp/scenes' });
+        } catch {
+          imageUrl = null;
+        }
+        const now = new Date();
+        const sceneNumber = 1;
+        const [scene] = await db
+          .insert(scenes)
+          .values({
+            storyId: story.id,
+            sceneNumber,
+            characterId: null,
+            userId,
+            userPrompt: 'PRÓLOGO',
+            narrative,
+            imageUrl,
+            location: 'Neoterra',
+            transitionType: 'main',
+            contextUsed: [],
+            createdAt: now
+          })
+          .returning();
+        await db.execute(
+          sql`INSERT INTO manuscripts (story_id, version, content) VALUES (${story.id}::uuid, ${scene.sceneNumber}, ${narrative}) ON CONFLICT (story_id, version) DO NOTHING`
+        );
+        await setFlag('story_started', 'true');
+        await fetch(
+          `https://discord.com/api/v10/webhooks/${applicationId}/${interactionToken}/messages/@original`,
           {
-            title: `🟣 Prólogo iniciado · Escena #${scene.sceneNumber}`,
-            description: scene.narrative,
-            color: 0x7d3cff,
-            image: scene.imageUrl && !scene.imageUrl.startsWith('data:') ? { url: scene.imageUrl } : undefined,
-            footer: { text: 'Ecos de Neón - Crónicas del Último Horizonte' },
-            timestamp: new Date().toISOString()
+            method: 'PATCH',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({
+              embeds: [
+                {
+                  title: `🟣 Prólogo iniciado · Escena #${scene.sceneNumber}`,
+                  description: scene.narrative,
+                  color: 0x7d3cff,
+                  image:
+                    scene.imageUrl && !scene.imageUrl.startsWith('data:')
+                      ? { url: scene.imageUrl }
+                      : undefined,
+                  footer: { text: 'Ecos de Neón - Crónicas del Último Horizonte' },
+                  timestamp: new Date().toISOString()
+                }
+              ]
+            })
           }
-        ]
+        );
+      } catch {
+        await fetch(
+          `https://discord.com/api/v10/webhooks/${applicationId}/${interactionToken}/messages/@original`,
+          {
+            method: 'PATCH',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({
+              content: 'Ocurrió un error al iniciar el prólogo.'
+            })
+          }
+        );
       }
-    });
+    })();
+    return json({ type: 5 });
   }
   if (payload.type === 2 && payload.data?.name === 'character') {
     const guildId: string = payload.guild_id;
