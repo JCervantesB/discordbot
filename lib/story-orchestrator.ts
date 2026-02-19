@@ -8,8 +8,10 @@ import { getRegionBySlug } from '@/lib/regions';
 import { rollEventForScene } from '@/lib/events-engine';
 import { getProfessionBySlug } from '@/lib/professions';
 
+
 type Scene = typeof scenes.$inferSelect;
 type Character = typeof charactersTable.$inferSelect;
+
 
 type OrchestratorInput = {
   action: string;
@@ -17,17 +19,20 @@ type OrchestratorInput = {
   recentScenes: Scene[];
 };
 
+
 export type SceneGenerationResult = {
   narrative: string;
   imagePrompt: string;
   imageUrl: string | null;
 };
 
+
 async function generateSceneNarrative(input: OrchestratorInput) {
   logStage({ event: 'orchestrator', stage: 'narrative_start' });
   const contextSummary = input.recentScenes
     .map((s) => `#${s.sceneNumber}: ${s.narrative.slice(0, 160)}`)
     .join('\n');
+
 
   const faction = await getPrimaryFactionForCharacter(input.character.id);
   const region = input.character.currentRegionSlug
@@ -40,25 +45,24 @@ async function generateSceneNarrative(input: OrchestratorInput) {
     factionSlug: faction?.slug ?? null
   });
 
+
   const prompt = [
     faction?.promptBase ? faction.promptBase : '',
     region?.promptNarrative ? region.promptNarrative : '',
-    `Ha ocurrido un evento narrativo clasificado como ${eventContext.type} tras una tirada de dado con resultado ${eventContext.dice.finalRoll}.`,
-    eventContext.narrativeInstruction,
-    'Eres un narrador omnisciente de historias de fantasía/aventura.',
-    'Genera una escena narrativa coherente, breve y descriptiva que incorpore este evento.',
-    `Acción del personaje (${input.character.characterName}): "${input.action}"`,
-    contextSummary ? `Contexto previo:\n${contextSummary}` : 'No hay escenas previas.',
-    'Requisitos:',
-    '- Perspectiva en tercera persona.',
-    '- Escena en un máximo de 2 párrafos.',
-    '- Cada párrafo con 2 a 4 frases.',
-    '- No más de 180 palabras en total.',
-    '- Incluye algunos detalles sensoriales (sonidos, olores, texturas).',
-    '- Mantén tono épico/aventurero.',
-    '- Si el evento implica peligro, ofrece al menos dos opciones claras que el personaje podría tomar para enfrentarlo o escapar, basadas en la situación descrita.',
-    '- Termina con una frase gancho que invite al usuario a realizar otra acción para continuar la historia.'
+    `EVENTO ESPECIAL: ${eventContext.type.toUpperCase()} (tirada: ${eventContext.dice.finalRoll}). ${eventContext.narrativeInstruction}`,
+    'Eres ECHO-9, narrador omnisciente cyberpunk post-apocalíptico. Voz melancólica, cinematográfica, sensorial.',
+    'Genera ESCENA ÚNICA (2 párrafos máx, 180 palabras) que integre:',
+    `- Acción EXACTA: "${input.action}"`,
+    `- Evento: ${eventContext.type}`,
+    `- Contexto previo:\n${contextSummary || "Primera escena"}`,
+    'ESTRUCTURA OBLIGATORIA:',
+    'Párrafo 1: DESCRIPCIÓN SENSORIAL + desarrollo acción + introducción evento.',
+    'Párrafo 2: CONSECUENCIAS inmediatas + 2 OPCIONES CLARAS para próxima acción.',
+    'DETALLES VISUALES clave (para imagen posterior): objetos específicos, posiciones, luces, colores.',
+    'TERMINA: frase gancho con "?" invitando nueva acción.',
+    'ESPAÑOL impecable. Sin metatexto. Tono épico-melancólico.'
   ].join('\n');
+
 
   const narrative = await generateNarrative(prompt);
   const paragraphs = narrative
@@ -70,6 +74,7 @@ async function generateSceneNarrative(input: OrchestratorInput) {
   logStage({ event: 'orchestrator', stage: 'narrative_done' });
   return result;
 }
+
 
 async function designImagePrompt(input: {
   action: string;
@@ -99,8 +104,8 @@ async function designImagePrompt(input: {
           input.enemyName ? `Enemy: ${input.enemyName}` : '',
           input.enemyDescription ? `EnemyAppearance: ${input.enemyDescription}` : ''
         ]
-          .filter((part) => part.length > 0)
-          .join('. ')
+        .filter((part) => part.length > 0)
+        .join('. ')
       : '';
   const checklistIntro = [
     'Before writing the final image prompt, internally build a mental checklist from the narrative and action with these items:',
@@ -131,29 +136,34 @@ async function designImagePrompt(input: {
     );
   }
   const prompt = [
-    'You are a concept artist creating a detailed text-to-image prompt for a single frame of a graphic novel.',
-    'The image must clearly show the environment as a full scene, with the main character placed inside it (never as a centered portrait or selfie).',
-    'Requirements:',
-    '- English only.',
-    '- One or two short sentences, maximum 320 characters total.',
-    '- Start by describing the environment (landscape, structures, weather, light) and then place the character within that space.',
-    '- Show the character as a full-body or three-quarter figure integrated into the scene, possibly at medium distance or from behind; never as a close-up face or bust.',
-    '- If there is an enemy, describe its body and threat clearly in the same composition, sharing the scene with the character.',
-    '- Avoid abstract phrases about colors or vague energy; focus on concrete objects, silhouettes and spatial relationships.',
-    '- Do not include words like selfie, portrait, headshot, profile picture or user interface text.',
-    '- The narrative description has absolute priority over any generic aesthetic; never ignore explicit visual details from the narrative.',
-    '- If the narrative describes a specific device or object appearing on or above the character hand, the image must show that device clearly in that position with the described light or glow.',
-    checklistIntro,
+    'Eres artista de CONCEPT ART para novela gráfica cyberpunk. Creas prompts T2I precisos que RECREAN escenas exactas.',
+    
+    'ANALIZA NARRATIVA y construye CHECKLIST interna:',
+    '- OBJETOS CLAVE mencionados (armas, dispositivos, enemigos, recursos).',
+    '- POSICIÓN EXACTA: mano personaje, suelo, flotando, detrás, horizonte.',
+    '- PROPIEDADES VISUALES: glow, color dominante, material (óxido, neón, cristal), textura.',
+    '- COMPOSICIÓN: personaje MEDIUM SHOT (cintura arriba) INTEGRADO en entorno, NO retrato.',
+    '- ATMÓSFERA: clima, partículas (polvo, glitches, lluvia), fuentes luz específicas.',
+    
+    'REGLAS ABSOLUTAS:',
+    '- PERSONAJE: full-body o 3/4 shot, integrado escena, perspectiva dinámica (ángulo 3/4, ligeramente bajo).',
+    '- NUNCA: close-up cara, selfie, portrait, headshot, UI texto.',
+    '- FOCO: acción + evento en UN SOLO FRAME coherente.',
+    '- PRIORIDAD: narrativa > estética genérica.',
+    
     ...eventFocusLines,
-    input.eventType ? `EventType: ${input.eventType}` : '',
-    // Environment must be built only from regionPromptImage
-    regionImageStyle ? `Environment: ${regionImageStyle}` : '',
-    characterVisual,
-    enemyVisual,
-    `Action: ${input.action}`,
-    'Narrative in Spanish:',
-    input.narrative
+    
+    `REGIÓN: ${regionImageStyle || 'cyberpunk post-apocalíptico'}`,
+    `PERSONAJE: ${characterVisual}`,
+    ...(enemyVisual ? [`ENEMIGO: ${enemyVisual}`] : []),
+    `ACCIÓN: ${input.action}`,
+    `EVENTO: ${input.eventType}`,
+    `NARRATIVA BASE:\n${input.narrative}`,
+    
+    'OUTPUT: 1-2 oraciones Inglés, máx 320 chars. Sintaxis: [Entorno amplio] + [Personaje posicionado + acción] + [Elemento evento/objeto clave] + [atmósfera específica].',
+    'Estilo: Blade Runner 2049 × Cyberpunk 2077, cinematic lighting, 8k, ultra detailed.'
   ].join('\n');
+
 
   try {
     const raw = await generateNarrative(prompt);
@@ -169,6 +179,7 @@ async function designImagePrompt(input: {
     return limited;
   }
 }
+
 
 export async function orchestrateSceneGeneration(input: OrchestratorInput): Promise<SceneGenerationResult> {
   const narrative = await generateSceneNarrative(input);
@@ -199,6 +210,7 @@ export async function orchestrateSceneGeneration(input: OrchestratorInput): Prom
     enemyDescription: eventContext.enemy?.description ?? null
   });
 
+
   let imageUrl: string | null = null;
   try {
     logStage({ event: 'orchestrator', stage: 'image_start' });
@@ -212,12 +224,14 @@ export async function orchestrateSceneGeneration(input: OrchestratorInput): Prom
     logStage({ event: 'orchestrator', stage: 'image_failed' });
   }
 
+
   return {
     narrative,
     imagePrompt,
     imageUrl
   };
 }
+
 
 export async function orchestrateSceneGenerationWithDeps(
   input: OrchestratorInput,
