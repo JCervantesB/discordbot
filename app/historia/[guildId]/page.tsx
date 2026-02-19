@@ -3,19 +3,19 @@ import { scenes, stories } from '@/drizzle/schema';
 import { and, asc, eq } from 'drizzle-orm';
 
 type HistoriaPageProps = {
-  params: {
+  params: Promise<{
     guildId: string;
-  };
+  }>;
 };
 
 export default async function HistoriaPage({ params }: HistoriaPageProps) {
-  const guildIdParam = decodeURIComponent(params.guildId);
-  const guildId = 'GLOBAL_STORY';
+  const { guildId } = await params;
+  const decodedGuildId = decodeURIComponent(guildId);
 
   const storyRows = await db
     .select()
     .from(stories)
-    .where(and(eq(stories.guildId, guildId), eq(stories.status, 'active')))
+    .where(and(eq(stories.guildId, decodedGuildId), eq(stories.status, 'active')))
     .limit(1);
 
   const story = storyRows[0];
@@ -46,7 +46,7 @@ export default async function HistoriaPage({ params }: HistoriaPageProps) {
         <header className="mb-2">
           <h1 className="text-2xl font-semibold tracking-tight">{story.title}</h1>
           <p className="text-xs text-gray-400 mt-1">
-            Servidor: <span className="font-mono">{guildId}</span> · Escenas: {sceneRows.length}
+            Servidor: <span className="font-mono">{decodedGuildId}</span> · Escenas: {sceneRows.length}
           </p>
         </header>
         <section className="flex-1 flex flex-col gap-4">

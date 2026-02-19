@@ -83,7 +83,7 @@ async function designImagePrompt(input: {
   professionClothing?: string | null;
 }) {
   logStage({ event: 'orchestrator', stage: 'prompt_start' });
-  let regionImageStyle = input.regionPromptImage || '';
+  const regionImageStyle = input.regionPromptImage || '';
   const regionAtmosphereHints: Record<string, string> = {
     neoterra: 'night neon under dome, clinical geometry, cold blue light',
     restos_grisaceos: 'warm dusty light, scrap tech, solar panels, wind',

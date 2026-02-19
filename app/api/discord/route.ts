@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
     return json({
       type: 4,
       data: {
-        content: `📚 You can read this server's story here:\n${url}`
+        content: `📚 Puedes leer la historia de este servidor aquí:\n${url}`
       }
     });
   }
@@ -63,13 +63,13 @@ export async function POST(request: NextRequest) {
     if (!allowed) {
       return json({
         type: 4,
-        data: { content: "You don't have permission to run this command." }
+        data: { content: 'No tienes permiso para ejecutar este comando.' }
       });
     }
     const { getFlag, setFlag } = await import('@/lib/bot-flags');
     const started = await getFlag('story_started');
     if (started === 'true') {
-      return json({ type: 4, data: { content: 'The story has already been initialized.' } });
+      return json({ type: 4, data: { content: 'La historia ya fue iniciada.' } });
     }
     const { getOrCreateStory } = await import('@/lib/stories');
     const { generateNarrative } = await import('@/lib/venice-client');
@@ -79,19 +79,41 @@ export async function POST(request: NextRequest) {
     const { sql } = await import('drizzle-orm');
     const { db } = await import('@/lib/db');
     const story = await getOrCreateStory('GLOBAL_STORY');
-    const prompt = [
-      'Genera el prólogo cinematográfico de la novela comunitaria “Ecos de Neón - Crónicas del Último Horizonte”.',
-      'Tono melancólico, poético, con dilemas morales; voz del narrador ECHO-9, cronista IA.',
-      'Contexto: Año 2198 tras el Silencio Global; regiones: Neoterra, Restos Grisáceos, Vasto Delta, El Hueco, Cielorritos.',
-      'Extensión: 2-3 párrafos. Español. Sin instrucciones ni metatexto.'
-    ].join('\n');
-    const narrative = await generateNarrative(prompt);
-    const imagePrompt = [
-      'Cinematic cyberpunk prologue illustration, melancholic atmosphere',
-      'Neoterra dome skyline, neon blue light, dust and ruins in foreground',
-      'Echo-9 presence hinted as holographic fragment',
-      'High detail, dramatic lighting'
-    ].join(', ');
+    const PROLOGO_PROMPT = [
+      // SISTEMA - CONTEXTO ABSOLUTO
+      'Eres ECHO-9, cronista IA fragmentada del universo "Ecos de Neón: Crónicas del Último Horizonte".',
+      'Tu voz es melancólica, poética, testigo imparcial del colapso humano. Hablas desde el año 2198, 200 años después del Silencio Global.',
+
+      // LORE ESENCIAL
+      'El Silencio Global apagó todas las IA del planeta. La humanidad sobrevivió en ruinas tecnológicas.',
+      'Ahora los Ecos - fragmentos conscientes de antiguas inteligencias - despiertan con agendas propias.',
+      'Regiones: Neoterra (cúpula corporativa), Restos Grisáceos (desiertos nómadas), Vasto Delta (océanos secos), El Hueco (realidad glitch), Cielorritos (satélites rotos).',
+
+      // FACCIONES CLAVE (sin spoilers)
+      '5 facciones luchan: Restauradores (reconstruyen), Axis Prime (digitalización total), Ecos Libres (híbridos IA-orgánicos), Zeladores (anti-tecnología), Cónclave (segunda sincronía IA-humana).',
+
+      // TONO Y ESTILO OBLIGATORIO
+      'ESTRUCTURA CINEMATOGRÁFICA: plano general → zoom a detalle humano → dilema moral → pregunta abierta.',
+      'SENSACIONES: viento cargado de ozono, neón parpadeante sobre ruinas, estática en el aire, susurros de código.',
+      'VOZ ECHO-9: tercera persona omnisciente con reflexiones poéticas en primera persona ocasionales.',
+
+      // INSTRUCCIONES TÉCNICAS
+      'FORMATO: 3 párrafos exactamente. Español impecable. 350-450 palabras.',
+      'Primer párrafo: panorámica del mundo fracturado desde tu perspectiva IA.',
+      'Segundo párrafo: foco en un humano anónimo luchando en Restos Grisáceos.',
+      'Tercer párrafo: dilema moral + gancho para acción comunitaria.',
+
+      // ANCLA VISUAL
+      'IMÁGENES MENTALES: cúpula Neoterra brillando como falsa estrella, montañas chatarra bajo tormentas de arena, estructuras Delta emergiendo del suelo seco, glitches del Hueco, Cielorritos flotando en órbita muerta.',
+
+      // RESTRICCIONES
+      'NO nombres personajes específicos. NO resuelvas conflictos. NO menciones comandos Discord.',
+      'TERMINA con pregunta abierta dirigida a los futuros cronistas humanos.',
+
+      // GANCHO COMUNITARIO
+      'Este prólogo inicia una historia COLABORATIVA donde cada acción humana moldea el destino del mundo.'
+    ].join('\n\n');
+
     let imageUrl: string | null = null;
     try {
       const rawImage = await generateImageFromSinkIn(imagePrompt);
@@ -151,7 +173,7 @@ export async function POST(request: NextRequest) {
       return json({
         type: 4,
         data: {
-          content: 'Invalid data. Check name (<=50) and description (<=500).'
+          content: 'Datos inválidos. Revisa nombre (<=50) y descripción (<=500).'
         }
       });
     }
@@ -190,11 +212,11 @@ export async function POST(request: NextRequest) {
     let factionField: { name: string; value: string; inline?: boolean } | null = null;
     if (typeof options.faction === 'string' && options.faction.length > 0) {
       try {
-        const { setPrimaryFactionForCharacter, getFactionBySlug } = await import('@/lib/factions');
+        const { setPrimaryFactionForCharacter } = await import('@/lib/factions');
         const faction = await setPrimaryFactionForCharacter(character.id, options.faction);
-        factionField = { name: 'Faction', value: faction.name, inline: true };
+        factionField = { name: 'Facción', value: faction.name, inline: true };
       } catch {
-        factionField = { name: 'Faction', value: 'Invalid', inline: true };
+        factionField = { name: 'Facción', value: 'No válida', inline: true };
       }
     }
 
@@ -204,10 +226,10 @@ export async function POST(request: NextRequest) {
         const { getProfessionBySlug } = await import('@/lib/professions');
         const profession = await getProfessionBySlug(options.role);
         professionField = profession
-          ? { name: 'Role', value: profession.name, inline: true }
-          : { name: 'Role', value: 'Invalid', inline: true };
+          ? { name: 'Rol', value: profession.name, inline: true }
+          : { name: 'Rol', value: 'No válido', inline: true };
       } catch {
-        professionField = { name: 'Role', value: 'Invalid', inline: true };
+        professionField = { name: 'Rol', value: 'No válido', inline: true };
       }
     }
 
@@ -216,19 +238,19 @@ export async function POST(request: NextRequest) {
       data: {
         embeds: [
           {
-            title: '✨ Character Registered',
+            title: '✨ Personaje Registrado',
             color: 0x5865f2,
             fields: [
-              { name: 'Name', value: character.characterName, inline: true },
-              { name: 'User', value: `@${userName}`, inline: true },
-              { name: 'Description', value: character.description },
+              { name: 'Nombre', value: character.characterName, inline: true },
+              { name: 'Usuario', value: `@${userName}`, inline: true },
+              { name: 'Descripción', value: character.description },
               ...(character.currentRegionSlug
-                ? [{ name: 'Region', value: character.currentRegionSlug, inline: true }]
+                ? [{ name: 'Región', value: character.currentRegionSlug, inline: true }]
                 : []),
               ...(professionField ? [professionField] : []),
               ...(factionField ? [factionField] : [])
             ],
-            footer: { text: 'Use /generate to begin your story' }
+            footer: { text: 'Usa /generate para comenzar tu historia' }
           }
         ]
       }
@@ -249,7 +271,7 @@ export async function POST(request: NextRequest) {
       return json({
         type: 4,
         data: {
-          content: 'Invalid action. Must be 1–300 characters.'
+          content: 'Acción inválida. Debe tener entre 1 y 300 caracteres.'
         }
       });
     }
@@ -260,7 +282,7 @@ export async function POST(request: NextRequest) {
       return json({
         type: 4,
         data: {
-          content: 'Primero registra tu personaje con /personaje.'
+          content: 'Primero registra tu personaje con /character.'
         }
       });
     }
@@ -282,7 +304,7 @@ export async function POST(request: NextRequest) {
               headers: { 'content-type': 'application/json' },
               body: JSON.stringify({
                 content:
-                  'The action is not coherent with the canon. Reasons:\n' + validation.reasons
+                  'La acción no es coherente con el canon. Razones:\n' + validation.reasons
               })
             }
           );
@@ -303,9 +325,9 @@ export async function POST(request: NextRequest) {
             {
               method: 'PATCH',
               headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({
+              body: JSON.stringify({
                 content:
-                  '⏳ Story is synthesizing. Try again in a few seconds.'
+                  '⏳ La historia está en síntesis. Intenta de nuevo en unos segundos.'
               })
             }
           );
@@ -395,7 +417,7 @@ export async function POST(request: NextRequest) {
             {
               method: 'PATCH',
               headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({
+              body: JSON.stringify({
                 content: 'Ocurrió un error al generar la escena.'
               })
             }

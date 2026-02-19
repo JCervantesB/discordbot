@@ -4,7 +4,7 @@ import { eq } from 'drizzle-orm';
 
 export async function getOrCreateStory(guildId: string) {
   const globalId = 'GLOBAL_STORY';
-  const targetGuildId = globalId;
+  const targetGuildId = guildId || globalId;
   const existing = await db.select().from(stories).where(eq(stories.guildId, targetGuildId)).limit(1);
   if (existing.length) return existing[0];
   const inserted = await db
