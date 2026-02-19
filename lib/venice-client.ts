@@ -11,10 +11,13 @@ function getVeniceConfig() {
 
 const defaultTextModel = process.env.VENICE_TEXT_MODEL || 'venice-uncensored';
 const defaultImageModel = process.env.VENICE_IMAGE_MODEL || 'venice-sd35';
+const defaultVeniceTimeoutMs = Number(process.env.VENICE_TIMEOUT_MS || 10000);
 
 export async function generateNarrative(prompt: string) {
   const { apiKey, baseURL } = getVeniceConfig();
 
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), defaultVeniceTimeoutMs);
   const response = await fetch(`${baseURL}/chat/completions`, {
     method: 'POST',
     headers: {
@@ -29,8 +32,10 @@ export async function generateNarrative(prompt: string) {
           content: prompt
         }
       ]
-    })
+    }),
+    signal: controller.signal
   });
+  clearTimeout(timer);
 
   if (!response.ok) {
     const text = await response.text();

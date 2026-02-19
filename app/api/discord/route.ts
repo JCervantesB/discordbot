@@ -14,6 +14,7 @@ import { orchestrateSceneGeneration } from '@/lib/story-orchestrator';
 import { acquireStoryLock, releaseStoryLock } from '@/lib/lock';
 import { validateContribution, compileManuscript, summarizeManuscript } from '@/lib/narrator';
 import { sql } from 'drizzle-orm';
+import { logSceneGeneration } from '@/lib/logger';
 
 const PersonajeSchema = z.object({
   nombre: z.string().min(1).max(50),
@@ -136,6 +137,7 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    const started = Date.now();
     (async () => {
       try {
         const recentScenes = await getRecentScenesByStory(story.id, 3);
@@ -146,9 +148,9 @@ export async function POST(request: NextRequest) {
         });
         if (!validation.valid) {
           await fetch(
-            `https://discord.com/api/v10/webhooks/${applicationId}/${interactionToken}`,
+            `https://discord.com/api/v10/webhooks/${applicationId}/${interactionToken}/messages/@original`,
             {
-              method: 'POST',
+              method: 'PATCH',
               headers: { 'content-type': 'application/json' },
               body: JSON.stringify({
                 content:
@@ -156,15 +158,22 @@ export async function POST(request: NextRequest) {
               })
             }
           );
+          logSceneGeneration({
+            storyId: story.id,
+            userId,
+            success: false,
+            stage: 'validation_failed',
+            durationMs: Date.now() - started
+          });
           return;
         }
 
         const locked = await acquireStoryLock(story.id, userId);
         if (!locked) {
           await fetch(
-            `https://discord.com/api/v10/webhooks/${applicationId}/${interactionToken}`,
+            `https://discord.com/api/v10/webhooks/${applicationId}/${interactionToken}/messages/@original`,
             {
-              method: 'POST',
+              method: 'PATCH',
               headers: { 'content-type': 'application/json' },
               body: JSON.stringify({
                 content:
@@ -172,6 +181,13 @@ export async function POST(request: NextRequest) {
               })
             }
           );
+          logSceneGeneration({
+            storyId: story.id,
+            userId,
+            success: false,
+            stage: 'lock_unavailable',
+            durationMs: Date.now() - started
+          });
           return;
         }
         try {
@@ -210,9 +226,9 @@ export async function POST(request: NextRequest) {
             );
           }
           await fetch(
-            `https://discord.com/api/v10/webhooks/${applicationId}/${interactionToken}`,
+            `https://discord.com/api/v10/webhooks/${applicationId}/${interactionToken}/messages/@original`,
             {
-              method: 'POST',
+              method: 'PATCH',
               headers: { 'content-type': 'application/json' },
               body: JSON.stringify({
                 embeds: [
@@ -226,39 +242,50 @@ export async function POST(request: NextRequest) {
                         : undefined,
                     footer: {
                       text: `Generado por ${character.characterName}`
-                    }
+                    },
+                    timestamp: new Date().toISOString()
                   }
                 ]
               })
             }
           );
+          logSceneGeneration({
+            storyId: story.id,
+            userId,
+            sceneNumber: scene.sceneNumber,
+            success: true,
+            durationMs: Date.now() - started
+          });
         } finally {
           await releaseStoryLock(story.id);
         }
-      } catch {
+      } catch (e: unknown) {
         try {
           await fetch(
-            `https://discord.com/api/v10/webhooks/${applicationId}/${interactionToken}`,
+            `https://discord.com/api/v10/webhooks/${applicationId}/${interactionToken}/messages/@original`,
             {
-              method: 'POST',
+              method: 'PATCH',
               headers: { 'content-type': 'application/json' },
               body: JSON.stringify({
                 content: 'Ocurrió un error al generar la escena.'
               })
             }
           );
+          const errMsg = e instanceof Error ? e.message : 'Error desconocido';
+          logSceneGeneration({
+            storyId: story.id,
+            userId,
+            success: false,
+            stage: 'unexpected_error',
+            error: errMsg,
+            durationMs: Date.now() - started
+          });
         } catch {
-          // ignore
         }
       }
     })();
 
-    return json({
-      type: 4,
-      data: {
-        content: '⏳ Generando tu escena, esto puede tardar unos segundos...'
-      }
-    });
+    return json({ type: 5 });
   }
   return json({ type: 4, data: { content: 'Comando no soportado' } });
 }

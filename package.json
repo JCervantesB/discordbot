@@ -10,7 +10,8 @@
     "typecheck": "tsc -p tsconfig.json",
     "register:commands": "node scripts/register-commands.mjs",
     "db:generate": "drizzle-kit generate:pg",
-    "db:migrate": "node scripts/migrate.mjs"
+    "db:migrate": "node scripts/migrate.mjs",
+    "test:scene": "node tests/run-scene-tests.cjs"
   },
   "dependencies": {
     "next": "latest",
