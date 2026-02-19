@@ -123,15 +123,15 @@ async function designImagePrompt(input: {
   }
   const prompt = [
     'You are a concept artist creating a detailed text-to-image prompt for a single frame of a graphic novel.',
-    'The image must clearly show the main character, the environment and any visible enemy.',
+    'The image must clearly show the environment as a full scene, with the main character placed inside it (never as a centered portrait or selfie).',
     'Requirements:',
     '- English only.',
     '- One or two short sentences, maximum 320 characters total.',
-    '- Explicitly describe the character body, clothing, gear and posture.',
-    '- Use the environment description as the physical stage of the scene.',
-    '- If there is an enemy, describe its body and threat clearly in the same composition.',
-    '- Avoid abstract phrases about colors or energy; focus on concrete objects and silhouettes.',
-    '- Do not include camera jargon or on-screen text.',
+    '- Start by describing the environment (landscape, structures, weather, light) and then place the character within that space.',
+    '- Show the character as a full-body or three-quarter figure integrated into the scene, possibly at medium distance or from behind; never as a close-up face or bust.',
+    '- If there is an enemy, describe its body and threat clearly in the same composition, sharing the scene with the character.',
+    '- Avoid abstract phrases about colors or vague energy; focus on concrete objects, silhouettes and spatial relationships.',
+    '- Do not include words like selfie, portrait, headshot, profile picture or user interface text.',
     ...eventFocusLines,
     input.eventType ? `EventType: ${input.eventType}` : '',
     // Environment must be built only from regionPromptImage

@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
 
   if (payload.type === 2 && payload.data?.name === 'story') {
     const guildId: string = payload.guild_id || 'GLOBAL_STORY';
-    const baseUrl = process.env.APP_BASE_URL || 'https://discord-storyapp.vercel.app';
+    const baseUrl = process.env.APP_BASE_URL || 'https://chats.zstory.online';
     const url = `${baseUrl}/historia/${encodeURIComponent(guildId)}`;
     return json({
       type: 4,
