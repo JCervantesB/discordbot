@@ -102,6 +102,15 @@ async function designImagePrompt(input: {
           .filter((part) => part.length > 0)
           .join('. ')
       : '';
+  const checklistIntro = [
+    'Before writing the final image prompt, internally build a mental checklist from the narrative and action with these items:',
+    '- Key objects explicitly mentioned (devices, artifacts, weapons, tools, consoles, screens, symbols).',
+    '- For each object: its approximate position (on the hand, floating above, on the floor, behind the character).',
+    '- Visual properties: brightness or glow, color, material, texture.',
+    '- Environment and atmosphere: landscape, structures, weather, light sources, particles or glitches.',
+    '- Composition: where the character stands in the scene relative to the key object and environment.',
+    'Then write a single concise English description that satisfies that checklist and NEVER contradicts the narrative.'
+  ].join('\n');
   const eventFocusLines: string[] = [];
   if (input.eventType === 'hostile_encounter' && (input.enemyName || input.enemyDescription)) {
     eventFocusLines.push(
@@ -132,6 +141,9 @@ async function designImagePrompt(input: {
     '- If there is an enemy, describe its body and threat clearly in the same composition, sharing the scene with the character.',
     '- Avoid abstract phrases about colors or vague energy; focus on concrete objects, silhouettes and spatial relationships.',
     '- Do not include words like selfie, portrait, headshot, profile picture or user interface text.',
+    '- The narrative description has absolute priority over any generic aesthetic; never ignore explicit visual details from the narrative.',
+    '- If the narrative describes a specific device or object appearing on or above the character hand, the image must show that device clearly in that position with the described light or glow.',
+    checklistIntro,
     ...eventFocusLines,
     input.eventType ? `EventType: ${input.eventType}` : '',
     // Environment must be built only from regionPromptImage

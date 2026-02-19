@@ -26,6 +26,41 @@ async function testSuccessfulGeneration() {
   }
 }
 
+async function testPromptRespectsNarrativeDevice() {
+  const narrative =
+    'Un dispositivo desconocido aparece suspendido sobre la mano de Aria. Emeten un brillo azulado intenso que ilumina sus dedos y proyecta sombras nerviosas sobre la barra.';
+  const input = {
+    action: 'observa el dispositivo que flota sobre su mano',
+    character: { characterName: 'Aria', description: 'exploradora de Restos Grisáceos' } as any,
+    recentScenes: []
+  };
+  const deps = {
+    generateNarrativeFn: async () => narrative,
+    generatePromptFn: async ({
+      characterName,
+      action,
+      narrative: fullNarrative
+    }: {
+      characterName: string;
+      action: string;
+      narrative: string;
+    }) =>
+      `${characterName} ${action} | ${fullNarrative.slice(
+        0,
+        120
+      )} | unknown floating device above hand, strong blue glow lighting fingers, bar interior, cinematic`,
+    generateImageFn: async () => 'data:image/png;base64,AAA',
+    uploadImageFn: async () => 'https://res.cloudinary.com/demo/image/upload/v123/scene.png'
+  };
+  const result = await orchestrateSceneGenerationWithDeps(input, deps);
+  if (!result.imagePrompt.includes('floating device') && !result.imagePrompt.includes('device above hand')) {
+    throw new Error('El prompt no prioriza el dispositivo flotando sobre la mano como elemento clave.');
+  }
+  if (!/blue glow/i.test(result.imagePrompt)) {
+    throw new Error('El prompt no refleja el brillo azulado del dispositivo.');
+  }
+}
+
 async function testImageFailureFallback() {
   const input = {
     action: 'observa el bosque oscuro',
@@ -51,7 +86,8 @@ async function testImageFailureFallback() {
 async function run() {
   const cases = [
     { name: 'Generación exitosa', fn: testSuccessfulGeneration },
-    { name: 'Fallback cuando falla imagen', fn: testImageFailureFallback }
+    { name: 'Fallback cuando falla imagen', fn: testImageFailureFallback },
+    { name: 'Prompt respeta dispositivo en mano y brillo', fn: testPromptRespectsNarrativeDevice }
   ];
   for (const c of cases) {
     try {
