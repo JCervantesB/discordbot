@@ -3,6 +3,10 @@ import { generateImageFromSinkIn } from '@/lib/sinkin-client';
 import { uploadImageToCloudinary } from '@/lib/cloudinary';
 import { type scenes, type characters as charactersTable } from '@/drizzle/schema';
 import { logStage } from '@/lib/logger';
+import { getPrimaryFactionForCharacter } from '@/lib/factions';
+import { getRegionBySlug } from '@/lib/regions';
+import { rollEventForScene } from '@/lib/events-engine';
+import { getProfessionBySlug } from '@/lib/professions';
 
 type Scene = typeof scenes.$inferSelect;
 type Character = typeof charactersTable.$inferSelect;
@@ -25,9 +29,24 @@ async function generateSceneNarrative(input: OrchestratorInput) {
     .map((s) => `#${s.sceneNumber}: ${s.narrative.slice(0, 160)}`)
     .join('\n');
 
+  const faction = await getPrimaryFactionForCharacter(input.character.id);
+  const region = input.character.currentRegionSlug
+    ? await getRegionBySlug(input.character.currentRegionSlug)
+    : null;
+  const eventContext = await rollEventForScene({
+    storyId: input.character.storyId,
+    userId: input.character.userId,
+    regionSlug: input.character.currentRegionSlug,
+    factionSlug: faction?.slug ?? null
+  });
+
   const prompt = [
+    faction?.promptBase ? faction.promptBase : '',
+    region?.promptNarrative ? region.promptNarrative : '',
+    `Ha ocurrido un evento narrativo clasificado como ${eventContext.type} tras una tirada de dado con resultado ${eventContext.dice.finalRoll}.`,
+    eventContext.narrativeInstruction,
     'Eres un narrador omnisciente de historias de fantasía/aventura.',
-    'Genera una escena narrativa coherente, breve y descriptiva.',
+    'Genera una escena narrativa coherente, breve y descriptiva que incorpore este evento.',
     `Acción del personaje (${input.character.characterName}): "${input.action}"`,
     contextSummary ? `Contexto previo:\n${contextSummary}` : 'No hay escenas previas.',
     'Requisitos:',
@@ -37,7 +56,8 @@ async function generateSceneNarrative(input: OrchestratorInput) {
     '- No más de 180 palabras en total.',
     '- Incluye algunos detalles sensoriales (sonidos, olores, texturas).',
     '- Mantén tono épico/aventurero.',
-    '- Termina con una frase gancho que invite al usuario con a realizar otra acción para continuar la historia.'
+    '- Si el evento implica peligro, ofrece al menos dos opciones claras que el personaje podría tomar para enfrentarlo o escapar, basadas en la situación descrita.',
+    '- Termina con una frase gancho que invite al usuario a realizar otra acción para continuar la historia.'
   ].join('\n');
 
   const narrative = await generateNarrative(prompt);
@@ -55,8 +75,24 @@ async function designImagePrompt(input: {
   action: string;
   characterName: string;
   narrative: string;
+  regionSlug?: string | null;
+  regionPromptImage?: string | null;
+  eventType?: string;
+  eventImageInstruction?: string;
+  professionName?: string | null;
+  professionClothing?: string | null;
 }) {
   logStage({ event: 'orchestrator', stage: 'prompt_start' });
+  let regionImageStyle = input.regionPromptImage || '';
+  const regionAtmosphereHints: Record<string, string> = {
+    neoterra: 'night neon under dome, clinical geometry, cold blue light',
+    restos_grisaceos: 'warm dusty light, scrap tech, solar panels, wind',
+    vasto_delta: 'foggy horizon, emergent submarine ruins, eerie anomalies',
+    el_hueco: 'surreal mixed reality, holographic distortions, glitch pulses',
+    cielorritos: 'thin atmosphere, cold daylight, orbital ruins and fragile bridges'
+  };
+  const regionHint =
+    (input.regionSlug && regionAtmosphereHints[input.regionSlug]) || '';
   const prompt = [
     'You are a visual scene designer for a fantasy story.',
     'Based on the following narrative and character action, write a single concise text-to-image prompt.',
@@ -66,6 +102,12 @@ async function designImagePrompt(input: {
     '- No line breaks.',
     '- Focus on visual elements: setting, mood, lighting, style.',
     '- Do not include camera jargon or text overlays.',
+    input.eventType ? `Event: ${input.eventType}` : '',
+    input.eventImageInstruction ? `EventVisual: ${input.eventImageInstruction}` : '',
+    regionHint ? `RegionAtmosphere: ${regionHint}` : '',
+    regionImageStyle ? `RegionStyle: ${regionImageStyle}` : '',
+    input.professionName ? `Profession: ${input.professionName}` : '',
+    input.professionClothing ? `CharacterOutfit: ${input.professionClothing}` : '',
     `Character name: ${input.characterName}`,
     `Action: ${input.action}`,
     'Narrative:',
@@ -89,10 +131,29 @@ async function designImagePrompt(input: {
 
 export async function orchestrateSceneGeneration(input: OrchestratorInput): Promise<SceneGenerationResult> {
   const narrative = await generateSceneNarrative(input);
+  const faction = await getPrimaryFactionForCharacter(input.character.id);
+  const region = input.character.currentRegionSlug
+    ? await getRegionBySlug(input.character.currentRegionSlug)
+    : null;
+  const eventContext = await rollEventForScene({
+    storyId: input.character.storyId,
+    userId: input.character.userId,
+    regionSlug: input.character.currentRegionSlug,
+    factionSlug: faction?.slug ?? null
+  });
+  const profession = input.character.professionSlug
+    ? await getProfessionBySlug(input.character.professionSlug)
+    : null;
   const imagePrompt = await designImagePrompt({
     action: input.action,
     characterName: input.character.characterName,
-    narrative
+    narrative,
+    regionSlug: input.character.currentRegionSlug,
+    regionPromptImage: region?.promptImage || null,
+    eventType: eventContext.type,
+    eventImageInstruction: eventContext.imageInstruction,
+    professionName: profession?.name || null,
+    professionClothing: profession?.clothingDescription || null
   });
 
   let imageUrl: string | null = null;
