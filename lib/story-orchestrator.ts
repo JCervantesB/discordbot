@@ -125,15 +125,15 @@ function designImagePrompt(input: {
   // 3. Action Keywords (Simple Heuristic Extraction)
   // We use a dictionary-based translation to inject dynamic visual tags from the user's action
   const actionTagsMap: Record<string, string> = {
-    'correr': 'running, sprinting, motion blur, dynamic pose',
-    'atacar': 'attacking, combat pose, wielding weapon, aggressive',
-    'disparar': 'shooting, firing weapon, muzzle flash, recoil',
-    'esconderse': 'hiding, stealth, crouching, shadows',
-    'investigar': 'investigating, looking closely, examining, flashlight',
-    'hablar': 'talking, conversation, gesturing, social interaction',
-    'descansar': 'resting, sitting, relaxed pose, campfire',
-    'hackear': 'hacking, typing, holographic interface, concentration',
-    'explorar': 'exploring, walking, looking around, wide shot'
+    'correr': '(running:1.4), (sprinting:1.3), motion blur, dynamic pose, speed lines',
+    'atacar': '(attacking:1.4), (combat pose:1.3), wielding weapon, aggressive, action shot',
+    'disparar': '(shooting:1.4), (firing weapon:1.3), muzzle flash, recoil, projectile',
+    'esconderse': '(hiding:1.4), (stealth:1.3), crouching, shadows, cover',
+    'investigar': '(investigating:1.3), looking closely, examining, flashlight, detailed eyes',
+    'hablar': '(talking:1.3), conversation, gesturing, social interaction, face focus',
+    'descansar': '(resting:1.3), sitting, relaxed pose, campfire, calm',
+    'hackear': '(hacking:1.4), typing, holographic interface, concentration, glowing fingers',
+    'explorar': '(exploring:1.3), walking, looking around, wide shot, adventure'
   };
 
   // Simple keyword matching
@@ -152,7 +152,7 @@ function designImagePrompt(input: {
   // 4. Enemy Handling
   // Use enemyTag if defined, otherwise fallback to 'solo' in the parts array
   const enemyPart = input.enemyName 
-    ? `enemy threat, ${input.enemyName}, battle stance, dangerous presence` 
+    ? `(fighting ${input.enemyName}:1.4), battle scene, dangerous presence` 
     : 'solo';
 
   // 5. Event Atmosphere Injection
@@ -172,29 +172,28 @@ function designImagePrompt(input: {
     : 'cinematic lighting';
 
   // 6. Construct Prompt
-  // Order: Style (First for strength) > Quality > Event/Atmosphere > Subject > Action > Environment
+  // Order: Style > Action (High Priority) > Subject > Enemy > Event/Atmosphere > Environment
   const parts = [
     // Style (Strict Pixel Art - Moved to front for priority)
     '(32-bit pixel art:1.3), (snes style:1.2), (retro videogame:1.2), pixelated, dithering, cga colors, limited palette, sharp focus',
 
-    // Quality
-    'best quality, masterpiece, highres',
-    
-    // Event Atmosphere (Crucial for context match)
-    eventAtmosphere,
+    // Action / Context (MOVED UP for priority)
+    `${actionTag}, ${input.action.slice(0, 80)}`, 
     
     // Subject (Character)
-    // Use character description if available, otherwise generic clothing
     `${genderTag}, ${input.professionClothing || 'cyberpunk clothing'}, ${input.characterDescription || 'detailed character'}, detailed face`,
-    
-    // Action / Context
-    `${actionTag}, ${input.action.slice(0, 80)}`, // Inject raw user action
     
     // Enemy (if any)
     enemyPart,
+
+    // Event Atmosphere
+    eventAtmosphere,
     
-    // Environment
-    environment
+    // Environment (Background last)
+    environment,
+    
+    // Quality
+    'best quality, masterpiece, highres'
   ];
 
   const formatted = parts
