@@ -100,104 +100,56 @@ async function designImagePrompt(input: {
     furro: 'furry'
   };
   const genderTag = genderMap[input.characterGender] || '1person';
-  const qualityTags = 'best quality, masterpiece';
-  const technicalRenderTags = 'professional lighting, photon mapping, radiosity, physically-based rendering';
   
-  const regionImageStyle = input.regionPromptImage || '';
-  
-  // Consistencia de Personaje: Protocolo de Atributos Fijos
-  const characterVisual = [
-    genderTag,
-    input.professionClothing ? input.professionClothing : '',
-    input.characterDescription ? input.characterDescription : ''
-  ]
-    .filter((part) => part.length > 0)
-    .join(', ');
+  // Contexto crudo en español para ser procesado
+  const rawContext = [
+    `Character Name: ${input.characterName}`,
+    `Gender Tag: ${genderTag}`,
+    `Character Description (Spanish): ${input.characterDescription || 'No description'}`,
+    `Clothing/Equipment (Spanish): ${input.professionClothing || 'Standard gear'}`,
+    `Current Action (Spanish): ${input.action}`,
+    `Region/Setting: ${input.regionSlug || 'Cyberpunk city'}`,
+    `Environment Style: ${input.regionPromptImage || 'Neon lights, ruins'}`,
+    `Narrative Context: ${input.narrative.slice(0, 300)}`,
+    input.enemyName ? `Enemy Name: ${input.enemyName}` : '',
+    input.enemyDescription ? `Enemy Description: ${input.enemyDescription}` : ''
+  ].filter(Boolean).join('\n');
 
-  const enemyVisual =
-    input.enemyName || input.enemyDescription
-      ? [
-          input.enemyName ? `Enemy: ${input.enemyName}` : '',
-          input.enemyDescription ? `EnemyAppearance: ${input.enemyDescription}` : ''
-        ]
-        .filter((part) => part.length > 0)
-        .join('. ')
-      : '';
-
-  const eventFocusLines: string[] = [];
-  if (input.eventType === 'hostile_encounter' && (input.enemyName || input.enemyDescription)) {
-    eventFocusLines.push(
-      '- COMPOSITION: Action-packed side-view battle between character and enemy.',
-      '- ENEMY: Match enemy description exactly in pixel scale.'
-    );
-  } else if (input.eventType === 'environmental_hazard') {
-    eventFocusLines.push(
-      '- COMPOSITION: Wide shot showing character small against a massive environmental threat.',
-      '- ATMOSPHERE: High contrast, dramatic pixel particles for the hazard.'
-    );
-  }
-
-  // Protocolo de Coherencia de Entorno (Paletas Regionales)
-  const REGIONAL_PALETTES: Record<string, string> = {
-    neoterra: 'Palette: ultra-modern high-contrast, clinical whites, electric blue neons, glass reflections.',
-    restos_grisaceos: 'Palette: dusty desaturated oranges, rusted browns, industrial grays, hazy sunlight.',
-    vasto_delta: 'Palette: deep oceanic blues, bioluminescent cyans, wet dark grays, murky greens.',
-    el_hueco: 'Palette: glitchy magentas, corrupted greens, pitch black voids, flickering purples.',
-    cielorritos: 'Palette: cold stellar silvers, dark space violets, distant star whites, metallic alloys.'
-  };
-
-  const currentPalette = input.regionSlug ? REGIONAL_PALETTES[input.regionSlug] : 'Palette: cyberpunk industrial mixed colors.';
-
-  // Sistema de Prompt Engineering Avanzado: PIXEL ART CORE
   const prompt = [
-    'ROLE: You are a legendary 16-bit PIXEL ARTIST for SNES/MegaDrive era cyberpunk games.',
+    'ROLE: You are an expert Stable Diffusion Prompt Engineer specialized in 32-bit Pixel Art Game.',
+    'TASK: Convert the provided Spanish context into a highly detailed, comma-separated list of ENGLISH tags.',
     
-    'TECHNICAL SPECS (PIXEL ART):',
-    '- STYLE: Authentic 16-bit pixel art, high-quality sprites, hand-placed pixels.',
-    '- RENDERING: Crisp edges, visible pixel grid, intentional dithering for shadows, no blurs.',
-    '- RESOLUTION: 320x224 internal resolution look, clean integer scaling.',
+    'INPUT CONTEXT:',
+    rawContext,
     
-    'VISUAL CONSISTENCY PROTOCOL:',
-    `- CHARACTER TAGS: Always include these tags for ${input.characterName}: ${characterVisual}.`,
-    `- ENVIRONMENT: ${regionImageStyle || 'Cyberpunk ruins'}.`,
-    `- ATMOSPHERE & COLOR: ${currentPalette} Dynamic pixel lighting, 16-bit dithering.`,
+    'STRICT OUTPUT RULES:',
+    '1. LANGUAGE: Output must be 100% ENGLISH. Translate all Spanish descriptions to English tags.',
+    '2. FORMAT: Comma-separated tags only (e.g., tag1, tag2, tag3). No sentences.',
+    '3. LENGTH: You must generate at least 50 tags to ensure extreme detail.',
+    '4. STYLE: Enforce "32-bit Pixel Art Game, snes style, retro game aesthetics, pixelated, dithering, cga colors".',
+    '5. DECONSTRUCTION: Break down descriptions into specific visual tags (e.g., "chaqueta roja" -> "red jacket, open jacket, leather texture, high collar").',
+    '6. START EXACTLY WITH: "best quality, masterpiece, [gender_tag], ..."',
+    '7. COMPOSITION: Include tags for camera angle (e.g., "side view", "wide shot") and lighting (e.g., "volumetric lighting", "neon glow").',
     
-    'NARRATIVE COHERENCE CHECK:',
-    `SCENE CONTEXT: ${input.narrative.slice(0, 300)}`,
-    `CURRENT ACTION: ${input.action}`,
-    `EVENT TYPE: ${input.eventType || 'exploration'}`,
-    
-    ...(enemyVisual ? [`HOSTILE ELEMENT: ${enemyVisual}`] : []),
-
-    'OUTPUT FORMAT:',
-    `Create a single-line English prompt (max 320 chars) starting with "${qualityTags}, ${genderTag}".`,
-    'SINTAXIS: [Quality Tags] + [Gender Tag] + [Character Tags (Clothing/Physical)] + [Region Setting] + [Character action/position] + [Key Narrative Element] + [Technical Specs].',
-    `TECHNICAL PARAMETERS: ${technicalRenderTags}, 16-bit pixel art, snes style, detailed sprites, indexed colors, dithering.`
+    'Do not output explanations. Only the final prompt string.'
   ].join('\n');
 
   try {
     const raw = await generateNarrative(prompt);
-    const singleLine = raw.replace(/\s+/g, ' ').trim();
-    const limited = singleLine.slice(0, 320);
-    console.log(`[IMAGE_PROMPT] Generated: ${limited}`);
+    // Limpieza agresiva para asegurar formato
+    const singleLine = raw.replace(/\n/g, ', ').replace(/\s+/g, ' ').trim();
+    // Asegurar que no haya español (heurística básica)
+    // El LLM debería encargarse, pero formateamos las comas
+    const formatted = singleLine.split(',').map(t => t.trim()).filter(t => t.length > 0).join(', ');
+    
+    console.log(`[IMAGE_PROMPT] Generated: ${formatted.slice(0, 100)}...`);
     logStage({ event: 'orchestrator', stage: 'prompt_done' });
-    return limited;
+    return formatted;
   } catch {
-    const genderMap: Record<string, string> = {
-      femenino: '1girl',
-      masculino: '1boy',
-      'no binario': 'non-binary',
-      furro: 'furry'
-    };
     const genderTagFallback = genderMap[input.characterGender] || '1person';
-    // Fallback mejorado con rasgos visuales
-    const traits = characterVisual ? `, ${characterVisual}` : '';
-    const baseline = `best quality, masterpiece, ${genderTagFallback}${traits}, 16-bit pixel art, in ${regionImageStyle || 'cyberpunk ruins'}, ${input.action}, snes style, professional lighting`;
-    const singleLine = baseline.replace(/\s+/g, ' ').trim();
-    const limited = singleLine.slice(0, 200);
-    console.log(`[IMAGE_PROMPT] Fallback: ${limited}`);
-    logStage({ event: 'orchestrator', stage: 'prompt_fallback' });
-    return limited;
+    const fallbackPrompt = `best quality, masterpiece, ${genderTagFallback}, 32-bit Pixel Art Game, retro style, snes graphics, cyberpunk setting, pixelated, dithering, ${input.regionSlug || 'ruins'}, neon lights, detailed character, high resolution, vivid colors, dramatic lighting, ${input.action.replace(/ /g, ', ')}`; 
+    console.log(`[IMAGE_PROMPT] Fallback used`);
+    return fallbackPrompt;
   }
 }
 

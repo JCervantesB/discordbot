@@ -54,7 +54,8 @@ async function requestWithTimeoutAndRetry(
 
 export async function generateImageFromSinkIn(prompt: string) {
   const accessToken = assertEnv();
-  const sanitizedPrompt = prompt.replace(/\s+/g, ' ').trim().slice(0, 300);
+  // Aumentamos el límite para permitir prompts detallados (50+ tags)
+  const sanitizedPrompt = prompt.replace(/\s+/g, ' ').trim().slice(0, 1000);
   const body = {
     access_token: accessToken,
     model_id: defaultModelId,
