@@ -1,6 +1,6 @@
 const defaultApiUrl = process.env.SINKIN_API_URL || 'https://sinkin.ai/api/inference';
 const defaultModelId = process.env.SINKIN_MODEL_ID || 'JWknjgr';
-const defaultTimeoutMs = Number(process.env.SINKIN_TIMEOUT_MS || 15000);
+const defaultTimeoutMs = Number(process.env.SINKIN_TIMEOUT_MS || 60000);
 const defaultMaxRetries = Number(process.env.SINKIN_MAX_RETRIES || 2);
 
 function assertEnv() {
@@ -54,7 +54,8 @@ async function requestWithTimeoutAndRetry(
 
 export async function generateImageFromSinkIn(prompt: string) {
   const accessToken = assertEnv();
-  // Aumentamos el límite para permitir prompts detallados (50+ tags)
+  // Aumentamos el límite para permitir prompts detallados (30-50 tags)
+  // SinkIn a veces corta si es demasiado largo, 1000 es seguro
   const sanitizedPrompt = prompt.replace(/\s+/g, ' ').trim().slice(0, 1000);
   const body = {
     access_token: accessToken,
