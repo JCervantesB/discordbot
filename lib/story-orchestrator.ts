@@ -179,6 +179,7 @@ async function designImagePrompt(input: {
     const raw = await generateNarrative(prompt);
     const singleLine = raw.replace(/\s+/g, ' ').trim();
     const limited = singleLine.slice(0, 320);
+    console.log(`[IMAGE_PROMPT] Generated: ${limited}`);
     logStage({ event: 'orchestrator', stage: 'prompt_done' });
     return limited;
   } catch {
@@ -194,6 +195,7 @@ async function designImagePrompt(input: {
     const baseline = `best quality, masterpiece, ${genderTagFallback}${traits}, 16-bit pixel art, in ${regionImageStyle || 'cyberpunk ruins'}, ${input.action}, snes style, professional lighting`;
     const singleLine = baseline.replace(/\s+/g, ' ').trim();
     const limited = singleLine.slice(0, 200);
+    console.log(`[IMAGE_PROMPT] Fallback: ${limited}`);
     logStage({ event: 'orchestrator', stage: 'prompt_fallback' });
     return limited;
   }

@@ -61,6 +61,7 @@ export const characters = pgTable(
     userName: text('user_name').notNull(),
     characterName: text('character_name').notNull(),
     description: text('description').notNull(),
+    gender: text('gender').notNull(),
     traits: jsonb('traits').$type<Record<string, unknown>>().default({}),
     professionSlug: text('profession_slug'),
     currentRegionSlug: text('current_region_slug'),

@@ -18,7 +18,8 @@ import { logSceneGeneration } from '@/lib/logger';
 
 const CharacterSchema = z.object({
   name: z.string().min(1).max(50),
-  description: z.string().min(1).max(500)
+  description: z.string().min(1).max(500),
+  gender: z.enum(['masculino', 'femenino', 'no binario', 'furro'])
 });
 
 const GenerateSchema = z.object({
@@ -199,13 +200,14 @@ export async function POST(request: NextRequest) {
     const options = Object.fromEntries(optionsList.map((o) => [o.name, o.value]));
     const parsed = CharacterSchema.safeParse({
       name: options.name,
-      description: options.description
+      description: options.description,
+      gender: options.gender
     });
     if (!parsed.success) {
       return json({
         type: 4,
         data: {
-          content: 'Datos inválidos. Revisa nombre (<=50) y descripción (<=500).'
+          content: 'Datos inválidos. Revisa nombre (<=50), descripción (<=500) y género (masculino/femenino).'
         }
       });
     }
@@ -219,6 +221,7 @@ export async function POST(request: NextRequest) {
         userName,
         characterName: parsed.data.name,
         description: parsed.data.description,
+        gender: parsed.data.gender,
         traits: {},
         professionSlug:
           typeof options.role === 'string' && options.role.length > 0 ? options.role : null,
@@ -233,6 +236,7 @@ export async function POST(request: NextRequest) {
           userName,
           characterName: parsed.data.name,
           description: parsed.data.description,
+          gender: parsed.data.gender,
           professionSlug:
             typeof options.role === 'string' && options.role.length > 0 ? options.role : null,
           currentRegionSlug:
@@ -274,6 +278,7 @@ export async function POST(request: NextRequest) {
             color: 0x5865f2,
             fields: [
               { name: 'Nombre', value: character.characterName, inline: true },
+              { name: 'Género', value: character.gender, inline: true },
               { name: 'Usuario', value: `@${userName}`, inline: true },
               { name: 'Descripción', value: character.description },
               ...(character.currentRegionSlug
@@ -314,7 +319,17 @@ export async function POST(request: NextRequest) {
       return json({
         type: 4,
         data: {
-          content: 'Primero registra tu personaje con /character.'
+          content: 'No tienes un personaje registrado en este servidor. Usa `/personaje` primero.'
+        }
+      });
+    }
+
+    // Validación de género obligatorio
+    if (!character.gender) {
+      return json({
+        type: 4,
+        data: {
+          content: 'Tu personaje no tiene un género asignado. Por favor, actualiza tu personaje con `/personaje`.'
         }
       });
     }

@@ -32,6 +32,7 @@ async function main() {
     user_name TEXT NOT NULL,
     character_name TEXT NOT NULL,
     description TEXT NOT NULL,
+    gender TEXT NOT NULL,
     traits JSONB DEFAULT '{}'::jsonb,
     profession_slug TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW(),
@@ -41,6 +42,7 @@ async function main() {
   await sql`CREATE INDEX IF NOT EXISTS idx_characters_story ON characters(story_id);`;
   await sql`ALTER TABLE characters ADD COLUMN IF NOT EXISTS current_region_slug TEXT;`;
   await sql`ALTER TABLE characters ADD COLUMN IF NOT EXISTS profession_slug TEXT;`;
+  await sql`ALTER TABLE characters ADD COLUMN IF NOT EXISTS gender TEXT;`;
 
   await sql`CREATE TABLE IF NOT EXISTS character_factions (
     character_id UUID NOT NULL REFERENCES characters(id) ON DELETE CASCADE,
