@@ -194,20 +194,22 @@ export async function orchestrateSceneGeneration(input: OrchestratorInput): Prom
     factionSlug: faction?.slug ?? null
   });
 
-  // 2. Generate Narrative with Event Context
-  const narrative = await generateSceneNarrative(input, eventContext);
-
   const profession = input.character.professionSlug
     ? await getProfessionBySlug(input.character.professionSlug)
     : null;
 
-  // 3. Generate Image Prompt with same Event Context
-  const imagePrompt = await designImagePrompt({
-    action: input.action,
+  // 2. PARALLEL EXECUTION: Generate Narrative AND Image Prompt simultaneously
+  // We use the input action and event context for the image prompt instead of waiting for the full narrative
+  // This drastically reduces total latency
+  
+  const narrativePromise = generateSceneNarrative(input, eventContext);
+  
+  const imagePromptPromise = designImagePrompt({
+    action: input.action, // Use the user's action directly
     characterName: input.character.characterName,
     characterDescription: input.character.description,
     characterGender: input.character.gender,
-    narrative,
+    narrative: `Action: ${input.action}. Event: ${eventContext.type}. Region: ${region?.name}`, // Simplified context
     regionSlug: input.character.currentRegionSlug,
     regionPromptImage: region?.promptImage || null,
     eventType: eventContext.type,
@@ -217,6 +219,7 @@ export async function orchestrateSceneGeneration(input: OrchestratorInput): Prom
     enemyDescription: eventContext.enemy?.description ?? null
   });
 
+  const [narrative, imagePrompt] = await Promise.all([narrativePromise, imagePromptPromise]);
 
   let imageUrl: string | null = null;
   try {
