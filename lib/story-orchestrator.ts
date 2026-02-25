@@ -91,13 +91,16 @@ async function designImagePrompt(input: {
 }) {
   logStage({ event: 'orchestrator', stage: 'prompt_start' });
   const regionImageStyle = input.regionPromptImage || '';
+  
+  // Consistencia de Personaje: Protocolo de Atributos Fijos
   const characterVisual = [
     `Character: ${input.characterName}`,
     input.professionClothing ? `Outfit: ${input.professionClothing}` : '',
-    input.characterDescription ? `Appearance: ${input.characterDescription}` : ''
+    input.characterDescription ? `Physical Traits: ${input.characterDescription}` : ''
   ]
     .filter((part) => part.length > 0)
     .join('. ');
+
   const enemyVisual =
     input.enemyName || input.enemyDescription
       ? [
@@ -107,63 +110,57 @@ async function designImagePrompt(input: {
         .filter((part) => part.length > 0)
         .join('. ')
       : '';
-  const checklistIntro = [
-    'Before writing the final image prompt, internally build a mental checklist from the narrative and action with these items:',
-    '- Key objects explicitly mentioned (devices, artifacts, weapons, tools, consoles, screens, symbols).',
-    '- For each object: its approximate position (on the hand, floating above, on the floor, behind the character).',
-    '- Visual properties: brightness or glow, color, material, texture.',
-    '- Environment and atmosphere: landscape, structures, weather, light sources, particles or glitches.',
-    '- Composition: where the character stands in the scene relative to the key object and environment.',
-    'Then write a single concise English description that satisfies that checklist and NEVER contradicts the narrative.'
-  ].join('\n');
+
   const eventFocusLines: string[] = [];
   if (input.eventType === 'hostile_encounter' && (input.enemyName || input.enemyDescription)) {
     eventFocusLines.push(
-      '- Focus on the confrontation between character and enemy in the same frame.',
-      '- The enemy design must match the described enemy and feel dangerous.'
+      '- COMPOSITION: Action-packed side-view battle between character and enemy.',
+      '- ENEMY: Match enemy description exactly in pixel scale.'
     );
   } else if (input.eventType === 'environmental_hazard') {
     eventFocusLines.push(
-      '- Emphasize the environmental hazard as the main danger; do not invent extra enemies.'
-    );
-  } else if (input.eventType === 'rest_refuge') {
-    eventFocusLines.push(
-      '- Emphasize a calm but fragile refuge; no overt enemies should appear.'
-    );
-  } else if (input.eventType === 'resource_find' || input.eventType === 'equipment_gain') {
-    eventFocusLines.push(
-      '- Highlight the discovered resource or equipment as the main visual focal point.'
+      '- COMPOSITION: Wide shot showing character small against a massive environmental threat.',
+      '- ATMOSPHERE: High contrast, dramatic pixel particles for the hazard.'
     );
   }
-  const prompt = [
-    'Eres artista de CONCEPT ART para novela gráfica cyberpunk. Creas prompts T2I precisos que RECREAN escenas exactas.',
-    
-    'ANALIZA NARRATIVA y construye CHECKLIST interna:',
-    '- OBJETOS CLAVE mencionados (armas, dispositivos, enemigos, recursos).',
-    '- POSICIÓN EXACTA: mano personaje, suelo, flotando, detrás, horizonte.',
-    '- PROPIEDADES VISUALES: glow, color dominante, material (óxido, neón, cristal), textura.',
-    '- COMPOSICIÓN: personaje MEDIUM SHOT (cintura arriba) INTEGRADO en entorno, NO retrato.',
-    '- ATMÓSFERA: clima, partículas (polvo, glitches, lluvia), fuentes luz específicas.',
-    
-    'REGLAS ABSOLUTAS:',
-    '- PERSONAJE: full-body o 3/4 shot, integrado escena, perspectiva dinámica (ángulo 3/4, ligeramente bajo).',
-    '- NUNCA: close-up cara, selfie, portrait, headshot, UI texto.',
-    '- FOCO: acción + evento en UN SOLO FRAME coherente.',
-    '- PRIORIDAD: narrativa > estética genérica.',
-    
-    ...eventFocusLines,
-    
-    `REGIÓN: ${regionImageStyle || 'cyberpunk post-apocalíptico'}`,
-    `PERSONAJE: ${characterVisual}`,
-    ...(enemyVisual ? [`ENEMIGO: ${enemyVisual}`] : []),
-    `ACCIÓN: ${input.action}`,
-    `EVENTO: ${input.eventType}`,
-    `NARRATIVA BASE:\n${input.narrative}`,
-    
-    'OUTPUT: 1-2 oraciones Inglés, máx 320 chars. Sintaxis: [Entorno amplio] + [Personaje posicionado + acción] + [Elemento evento/objeto clave] + [atmósfera específica].',
-    'Estilo: Blade Runner 2049 × Cyberpunk 2077, cinematic lighting, 8k, ultra detailed.'
-  ].join('\n');
 
+  // Protocolo de Coherencia de Entorno (Paletas Regionales)
+  const REGIONAL_PALETTES: Record<string, string> = {
+    neoterra: 'Palette: ultra-modern high-contrast, clinical whites, electric blue neons, glass reflections.',
+    restos_grisaceos: 'Palette: dusty desaturated oranges, rusted browns, industrial grays, hazy sunlight.',
+    vasto_delta: 'Palette: deep oceanic blues, bioluminescent cyans, wet dark grays, murky greens.',
+    el_hueco: 'Palette: glitchy magentas, corrupted greens, pitch black voids, flickering purples.',
+    cielorritos: 'Palette: cold stellar silvers, dark space violets, distant star whites, metallic alloys.'
+  };
+
+  const currentPalette = input.regionSlug ? REGIONAL_PALETTES[input.regionSlug] : 'Palette: cyberpunk industrial mixed colors.';
+
+  // Sistema de Prompt Engineering Avanzado: PIXEL ART CORE
+  const prompt = [
+    'ROLE: You are a legendary 16-bit PIXEL ARTIST for SNES/MegaDrive era cyberpunk games.',
+    
+    'TECHNICAL SPECS (PIXEL ART):',
+    '- STYLE: Authentic 16-bit pixel art, high-quality sprites, hand-placed pixels.',
+    '- RENDERING: Crisp edges, visible pixel grid, intentional dithering for shadows, no blurs.',
+    '- RESOLUTION: 320x224 internal resolution look, clean integer scaling.',
+    
+    'VISUAL CONSISTENCY PROTOCOL:',
+    `- CHARACTER: Maintain fixed sprite traits for ${input.characterName}: ${characterVisual}.`,
+    `- ENVIRONMENT: ${regionImageStyle || 'Cyberpunk ruins'}.`,
+    `- ATMOSPHERE & COLOR: ${currentPalette} Dynamic pixel lighting, 16-bit dithering.`,
+    
+    'NARRATIVE COHERENCE CHECK:',
+    `SCENE CONTEXT: ${input.narrative.slice(0, 300)}`,
+    `CURRENT ACTION: ${input.action}`,
+    `EVENT TYPE: ${input.eventType || 'exploration'}`,
+    
+    ...(enemyVisual ? [`HOSTILE ELEMENT: ${enemyVisual}`] : []),
+
+    'OUTPUT FORMAT:',
+    'Create a single-line English prompt (max 320 chars) that describes the scene as a 16-bit game screenshot.',
+    'SINTAXIS: [Region Setting] + [Character sprite action/position] + [Key Narrative Element] + [16-bit technical specs].',
+    'STYLE KEYWORDS: 16-bit pixel art, snes style, side-view or 3/4 isometric, detailed sprites, indexed colors, dithering.'
+  ].join('\n');
 
   try {
     const raw = await generateNarrative(prompt);
@@ -172,7 +169,7 @@ async function designImagePrompt(input: {
     logStage({ event: 'orchestrator', stage: 'prompt_done' });
     return limited;
   } catch {
-    const baseline = `${input.characterName} ${input.action} | detailed fantasy scene, rich lighting, cinematic, high detail, 4k`;
+    const baseline = `16-bit pixel art, ${input.characterName} in ${regionImageStyle || 'cyberpunk ruins'}, ${input.action}, snes style, vibrant colors`;
     const singleLine = baseline.replace(/\s+/g, ' ').trim();
     const limited = singleLine.slice(0, 200);
     logStage({ event: 'orchestrator', stage: 'prompt_fallback' });

@@ -83,11 +83,53 @@ async function testImageFailureFallback() {
   }
 }
 
+async function testPixelArtConsistency() {
+  const input = {
+    action: 'explora las ruinas de Neoterra',
+    character: {
+      id: 'char-1',
+      characterName: 'Kael',
+      description: 'Capa roja, armadura metálica, ojos neón',
+      currentRegionSlug: 'neoterra',
+      storyId: 'story-1',
+      userId: 'user-1'
+    } as any,
+    recentScenes: []
+  };
+
+  const deps = {
+    generateNarrativeFn: async () => 'Kael camina entre los escombros de Neoterra.',
+    generatePromptFn: async (args: any) => {
+      if (!args.narrative.includes('Kael')) throw new Error('Falta personaje en prompt');
+      return '16-bit pixel art, Kael in Neoterra ruins, red cape, metallic armor, neon eyes, snes style';
+    },
+    generateImageFn: async () => 'data:image/png;base64,AAA',
+    uploadImageFn: async () => 'https://res.cloudinary.com/demo/image/upload/v123/scene.png'
+  };
+
+  const result = await orchestrateSceneGenerationWithDeps(input, deps);
+  
+  // Validación de keywords técnicas de Pixel Art
+  const technicalKeywords = ['16-bit', 'pixel art', 'snes style'];
+  const hasTechnical = technicalKeywords.every(k => result.imagePrompt.toLowerCase().includes(k));
+  if (!hasTechnical) {
+    throw new Error(`El prompt no contiene las especificaciones técnicas requeridas: ${result.imagePrompt}`);
+  }
+
+  // Validación de consistencia de personaje
+  const characterKeywords = ['red cape', 'metallic armor', 'neon eyes'];
+  const hasCharacter = characterKeywords.every(k => result.imagePrompt.toLowerCase().includes(k));
+  if (!hasCharacter) {
+    throw new Error(`El prompt no mantiene la consistencia del personaje: ${result.imagePrompt}`);
+  }
+}
+
 async function run() {
   const cases = [
     { name: 'Generación exitosa', fn: testSuccessfulGeneration },
     { name: 'Fallback cuando falla imagen', fn: testImageFailureFallback },
-    { name: 'Prompt respeta dispositivo en mano y brillo', fn: testPromptRespectsNarrativeDevice }
+    { name: 'Respeto a dispositivo en narrativa', fn: testPromptRespectsNarrativeDevice },
+    { name: 'Consistencia Pixel Art y Personaje', fn: testPixelArtConsistency }
   ];
   for (const c of cases) {
     try {
