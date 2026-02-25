@@ -40,26 +40,36 @@ async function generateSceneNarrative(input: OrchestratorInput, eventContext: Ev
     ? await getRegionBySlug(input.character.currentRegionSlug)
     : null;
 
-  const enemyInstruction = eventContext.enemy 
+  const enemyInstruction = eventContext.enemy
     ? `ENEMIGO PRESENTE: ${eventContext.enemy.name}. Descripción: ${eventContext.enemy.description}. Comportamiento: ${eventContext.enemy.behavior}.`
     : '';
 
   const prompt = [
-    faction?.promptBase ? faction.promptBase : '',
-    region?.promptNarrative ? region.promptNarrative : '',
-    `EVENTO ESPECIAL: ${eventContext.type.toUpperCase()} (tirada: ${eventContext.dice.finalRoll}). ${eventContext.narrativeInstruction}`,
+    'Eres ECHO-9, narrador omnisciente de historias épicas de fantasía/aventura cyberpunk.',
+    'Genera UNA ESCENA NARRATIVA coherente (máx 180 palabras, 2 párrafos) que continúe perfectamente la historia.',
+    
+    `PERSONAJE PRINCIPAL: ${input.character.characterName}`,
+    `ACCIÓN EXACTA: "${input.action}"`,
+    `REGIÓN ACTUAL: ${region?.name || 'Zona Desconocida'} (${region?.description || 'Entorno misterioso'})`,
+    
+    'CONTEXTO RECIENTE:',
+    contextSummary || 'Primera escena - sin contexto previo.',
+    
+    `EVENTO ACTIVO: ${eventContext.type.toUpperCase()}`,
+    eventContext.narrativeInstruction,
     enemyInstruction,
-    'Eres ECHO-9, narrador omnisciente cyberpunk post-apocalíptico. Voz melancólica, cinematográfica, sensorial.',
-    'Genera ESCENA ÚNICA (2 párrafos máx, 180 palabras) que integre:',
-    `- Acción EXACTA: "${input.action}"`,
-    `- Evento: ${eventContext.type}`,
-    `- Contexto previo:\n${contextSummary || "Primera escena"}`,
+    
     'ESTRUCTURA OBLIGATORIA:',
-    'Párrafo 1: DESCRIPCIÓN SENSORIAL + desarrollo acción + introducción evento.',
-    'Párrafo 2: CONSECUENCIAS inmediatas + 2 OPCIONES CLARAS para próxima acción.',
-    'DETALLES VISUALES clave (para imagen posterior): objetos específicos, posiciones, luces, colores.',
-    'TERMINA: frase gancho con "?" invitando nueva acción.',
-    'ESPAÑOL impecable. Sin metatexto. Tono épico-melancólico.'
+    '- Párrafo 1: DESCRIPCIÓN SENSORIAL del entorno + desarrollo de la acción exacta. Integra el clima, la luz y la atmósfera de la región.',
+    '- Párrafo 2: CONSECUENCIAS inmediatas + tensión narrativa + 2 opciones implícitas para continuar.',
+    '- Perspectiva: Tercera persona cercana (enfocada en emociones/acciones del personaje).',
+    '- Estilo: 2-4 frases por párrafo. Tono épico-melancólico.',
+    '- Detalles sensoriales específicos: sonidos metálicos, olores a ozono/pólvora, texturas rugosas/frías.',
+    '- Visuales clave: luces neón parpadeantes, sombras profundas, objetos específicos del entorno.',
+    
+    `TERMINA SIEMPRE con frase gancho: "¿Qué hará ${input.character.characterName} ahora?"`,
+    
+    'ESPAÑOL impecable. Sin metatexto narrativo. Inmersión total.'
   ].join('\n');
 
 
@@ -99,7 +109,7 @@ async function designImagePrompt(input: {
     furro: 'furry'
   };
   const genderTag = genderMap[input.characterGender] || '1person';
-  
+
   // Contexto crudo en español para ser procesado
   const rawContext = [
     `Character: ${input.characterName} (${genderTag})`,
@@ -112,50 +122,57 @@ async function designImagePrompt(input: {
   ].filter(Boolean).join('\n');
 
   const prompt = [
-    'You are an expert Stable Diffusion Prompt Engineer for Pixel Art.',
-    'Task: Translate the Spanish context into a detailed, comma-separated English prompt.',
-    'Style: 32-bit Pixel Art, SNES style, dithering, cga colors.',
-    
-    '# Examples',
-    'Input:',
-    'Character: Guerrero (Hombre), Armadura oxidada.',
-    'Action: Corriendo por el desierto.',
-    'Region: Restos Grisáceos (polvo, sol tenue).',
-    'Enemy: Carroñero (armadura reciclada).',
-    
-    'Output:',
-    'best quality, masterpiece, 1boy, warrior, male focus, rusted plate armor, heavy armor, metallic texture, running, sprinting, dynamic pose, desert ruins, dusty atmosphere, hazy sunlight, industrial waste, brown and orange palette, enemy presence, scavenger, recycled armor, scrap metal, threatening posture, 32-bit pixel art, snes style, dithering, wide shot, side view',
-    
-    '# Current Task',
-    'Input:',
-    rawContext,
-    
-    'Output:',
-    'best quality, masterpiece, ' + genderTag + ','
-  ].join('\n');
+  'You are an expert Stable Diffusion Prompt Engineer specialized in retro Pixel Art for videogames.',
+  'Goal: Convert the Spanish game context into a rich, comma-separated English prompt that perfectly matches the described scene.',
+  'The prompt must clearly describe: main character, their action, region/environment, enemies, camera shot, atmosphere, and color palette.',
+  'Style: 32-bit pixel art, SNES style, retro videogame, dithering, limited color palette, cga colors, clean readable sprites.',
+
+  '# Examples',
+  'Input:',
+  'Character: Guerrero (Hombre), Armadura oxidada.',
+  'Action: Corriendo por el desierto.',
+  'Region: Restos Grisáceos (polvo, sol tenue).',
+  'Enemy: Carroñero (armadura reciclada).',
+
+  'Output:',
+  'best quality, masterpiece, 1boy, warrior, male focus, rusted plate armor, heavy armor, metallic texture, running, sprinting, dynamic pose, desert ruins, dusty atmosphere, hazy sunlight, industrial waste, brown and orange palette, enemy presence, scavenger, recycled armor, scrap metal, threatening posture, 32-bit pixel art, snes style, dithering, retro videogame, wide shot, side view',
+
+  '# Current Task',
+  'You will receive a Spanish context describing character, action, region and enemies in a single block.',
+  'Recreate the scene as faithfully as possible: keep the same region, enemies, actions and mood, expanding them into precise visual tags.',
+  'Focus on: specific objects, terrain, weather, lighting, colors, enemy design, pose and movement of the main character.',
+  'Avoid storytelling sentences; only output visual tags, separated by commas.',
+
+  'Input:',
+  rawContext,
+
+  'Output:',
+  'best quality, masterpiece, ' + genderTag + ','
+].join('\n');
+
 
   try {
     const raw = await generateNarrative(prompt);
     // Limpieza: aseguramos que empiece con el prefijo si el modelo no lo incluyó
     const prefix = `best quality, masterpiece, ${genderTag},`;
     let content = raw.replace(/\n/g, ', ').replace(/\s+/g, ' ').trim();
-    
+
     if (!content.toLowerCase().startsWith('best quality')) {
       content = prefix + content;
     }
-    
+
     // Eliminar duplicados básicos y formatear
     const tags = content.split(',').map(t => t.trim()).filter(t => t.length > 0);
     const uniqueTags = [...new Set(tags)];
     const formatted = uniqueTags.join(', ');
-    
+
     console.log(`[IMAGE_PROMPT] Generated: ${formatted.slice(0, 100)}...`);
     logStage({ event: 'orchestrator', stage: 'prompt_done' });
     return formatted;
   } catch (error) {
     console.error('[IMAGE_PROMPT] Error generating prompt:', error);
     const genderTagFallback = genderMap[input.characterGender] || '1person';
-    const fallbackPrompt = `best quality, masterpiece, ${genderTagFallback}, 32-bit Pixel Art Game, retro style, snes graphics, cyberpunk setting, pixelated, dithering, ${input.regionSlug || 'ruins'}, neon lights, detailed character, high resolution, vivid colors, dramatic lighting, ${input.action.replace(/ /g, ', ')}`; 
+    const fallbackPrompt = `best quality, masterpiece, ${genderTagFallback}, 32-bit Pixel Art Game, retro style, snes graphics, cyberpunk setting, pixelated, dithering, ${input.regionSlug || 'ruins'}, neon lights, detailed character, high resolution, vivid colors, dramatic lighting, ${input.action.replace(/ /g, ', ')}`;
     console.log(`[IMAGE_PROMPT] Fallback used`);
     return fallbackPrompt;
   }
@@ -167,7 +184,7 @@ export async function orchestrateSceneGeneration(input: OrchestratorInput): Prom
   const region = input.character.currentRegionSlug
     ? await getRegionBySlug(input.character.currentRegionSlug)
     : null;
-    
+
   // 1. Roll Event FIRST
   const eventContext = await rollEventForScene({
     storyId: input.character.storyId,
@@ -182,7 +199,7 @@ export async function orchestrateSceneGeneration(input: OrchestratorInput): Prom
   const profession = input.character.professionSlug
     ? await getProfessionBySlug(input.character.professionSlug)
     : null;
-    
+
   // 3. Generate Image Prompt with same Event Context
   const imagePrompt = await designImagePrompt({
     action: input.action,
