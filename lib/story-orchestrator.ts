@@ -174,8 +174,8 @@ function designImagePrompt(input: {
   // 6. Construct Prompt
   // Order: Style > Action (High Priority) > Subject > Enemy > Event/Atmosphere > Environment
   const parts = [
-    // Style (Strict Pixel Art - Moved to front for priority)
-    '(32-bit pixel art:1.3), (snes style:1.2), (retro videogame:1.2), pixelated, dithering, cga colors, limited palette, sharp focus',
+    // Style (Strict 8-bit Pixel Art - Aggressively Weighted)
+    '(8-bit pixel art:1.5), (pixel art:1.5), (retro game:1.4), (nes style:1.4), (low resolution:1.3), pixelated, blocky, limited palette, dithering, sharp focus',
 
     // Action / Context (MOVED UP for priority)
     `${actionTag}, ${input.action.slice(0, 80)}`, 
@@ -192,8 +192,8 @@ function designImagePrompt(input: {
     // Environment (Background last)
     environment,
     
-    // Quality
-    'best quality, masterpiece, highres'
+    // Quality (Reduced weight to avoid overriding pixel style)
+    'best quality, masterpiece'
   ];
 
   const formatted = parts
