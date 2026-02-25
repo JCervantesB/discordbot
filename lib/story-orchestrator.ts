@@ -19,6 +19,7 @@ type OrchestratorInput = {
   recentScenes: Scene[];
 };
 
+type EventContext = Awaited<ReturnType<typeof rollEventForScene>>;
 
 export type SceneGenerationResult = {
   narrative: string;
@@ -27,7 +28,7 @@ export type SceneGenerationResult = {
 };
 
 
-async function generateSceneNarrative(input: OrchestratorInput) {
+async function generateSceneNarrative(input: OrchestratorInput, eventContext: EventContext) {
   logStage({ event: 'orchestrator', stage: 'narrative_start' });
   const contextSummary = input.recentScenes
     .map((s) => `#${s.sceneNumber}: ${s.narrative.slice(0, 160)}`)
@@ -38,18 +39,16 @@ async function generateSceneNarrative(input: OrchestratorInput) {
   const region = input.character.currentRegionSlug
     ? await getRegionBySlug(input.character.currentRegionSlug)
     : null;
-  const eventContext = await rollEventForScene({
-    storyId: input.character.storyId,
-    userId: input.character.userId,
-    regionSlug: input.character.currentRegionSlug,
-    factionSlug: faction?.slug ?? null
-  });
 
+  const enemyInstruction = eventContext.enemy 
+    ? `ENEMIGO PRESENTE: ${eventContext.enemy.name}. Descripción: ${eventContext.enemy.description}. Comportamiento: ${eventContext.enemy.behavior}.`
+    : '';
 
   const prompt = [
     faction?.promptBase ? faction.promptBase : '',
     region?.promptNarrative ? region.promptNarrative : '',
     `EVENTO ESPECIAL: ${eventContext.type.toUpperCase()} (tirada: ${eventContext.dice.finalRoll}). ${eventContext.narrativeInstruction}`,
+    enemyInstruction,
     'Eres ECHO-9, narrador omnisciente cyberpunk post-apocalíptico. Voz melancólica, cinematográfica, sensorial.',
     'Genera ESCENA ÚNICA (2 párrafos máx, 180 palabras) que integre:',
     `- Acción EXACTA: "${input.action}"`,
@@ -111,8 +110,8 @@ async function designImagePrompt(input: {
     `Region/Setting: ${input.regionSlug || 'Cyberpunk city'}`,
     `Environment Style: ${input.regionPromptImage || 'Neon lights, ruins'}`,
     `Narrative Context: ${input.narrative.slice(0, 300)}`,
-    input.enemyName ? `Enemy Name: ${input.enemyName}` : '',
-    input.enemyDescription ? `Enemy Description: ${input.enemyDescription}` : ''
+    input.enemyName ? `ENEMY PRESENT: ${input.enemyName}` : 'NO ENEMY PRESENT',
+    input.enemyDescription ? `ENEMY VISUALS: ${input.enemyDescription}` : ''
   ].filter(Boolean).join('\n');
 
   const prompt = [
@@ -128,8 +127,9 @@ async function designImagePrompt(input: {
     '3. LENGTH: You must generate at least 50 tags to ensure extreme detail.',
     '4. STYLE: Enforce "32-bit Pixel Art Game, snes style, retro game aesthetics, pixelated, dithering, cga colors".',
     '5. DECONSTRUCTION: Break down descriptions into specific visual tags (e.g., "chaqueta roja" -> "red jacket, open jacket, leather texture, high collar").',
-    '6. START EXACTLY WITH: "best quality, masterpiece, [gender_tag], ..."',
-    '7. COMPOSITION: Include tags for camera angle (e.g., "side view", "wide shot") and lighting (e.g., "volumetric lighting", "neon glow").',
+    '6. PRIORITY: If an ENEMY is present in context, you MUST include specific tags for it. If "NO ENEMY PRESENT", DO NOT invent one.',
+    '7. START EXACTLY WITH: "best quality, masterpiece, [gender_tag], ..."',
+    '8. COMPOSITION: Include tags for camera angle (e.g., "side view", "wide shot") and lighting (e.g., "volumetric lighting", "neon glow").',
     
     'Do not output explanations. Only the final prompt string.'
   ].join('\n');
@@ -145,7 +145,8 @@ async function designImagePrompt(input: {
     console.log(`[IMAGE_PROMPT] Generated: ${formatted.slice(0, 100)}...`);
     logStage({ event: 'orchestrator', stage: 'prompt_done' });
     return formatted;
-  } catch {
+  } catch (error) {
+    console.error('[IMAGE_PROMPT] Error generating prompt:', error);
     const genderTagFallback = genderMap[input.characterGender] || '1person';
     const fallbackPrompt = `best quality, masterpiece, ${genderTagFallback}, 32-bit Pixel Art Game, retro style, snes graphics, cyberpunk setting, pixelated, dithering, ${input.regionSlug || 'ruins'}, neon lights, detailed character, high resolution, vivid colors, dramatic lighting, ${input.action.replace(/ /g, ', ')}`; 
     console.log(`[IMAGE_PROMPT] Fallback used`);
@@ -155,20 +156,27 @@ async function designImagePrompt(input: {
 
 
 export async function orchestrateSceneGeneration(input: OrchestratorInput): Promise<SceneGenerationResult> {
-  const narrative = await generateSceneNarrative(input);
   const faction = await getPrimaryFactionForCharacter(input.character.id);
   const region = input.character.currentRegionSlug
     ? await getRegionBySlug(input.character.currentRegionSlug)
     : null;
+    
+  // 1. Roll Event FIRST
   const eventContext = await rollEventForScene({
     storyId: input.character.storyId,
     userId: input.character.userId,
     regionSlug: input.character.currentRegionSlug,
     factionSlug: faction?.slug ?? null
   });
+
+  // 2. Generate Narrative with Event Context
+  const narrative = await generateSceneNarrative(input, eventContext);
+
   const profession = input.character.professionSlug
     ? await getProfessionBySlug(input.character.professionSlug)
     : null;
+    
+  // 3. Generate Image Prompt with same Event Context
   const imagePrompt = await designImagePrompt({
     action: input.action,
     characterName: input.character.characterName,
