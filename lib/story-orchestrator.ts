@@ -128,8 +128,9 @@ function designImagePrompt(input: {
   const actionTag = 'dynamic pose, cinematic shot'; 
 
   // 4. Enemy Handling
-  const enemyTag = input.enemyName 
-    ? `enemy threat, ${input.enemyName}, battle stance` 
+  // Use enemyTag if defined, otherwise fallback to 'solo' in the parts array
+  const enemyPart = input.enemyName 
+    ? `enemy threat, ${input.enemyName}, battle stance, dangerous presence` 
     : 'solo';
 
   // 5. Construct Prompt
@@ -139,13 +140,14 @@ function designImagePrompt(input: {
     'best quality, masterpiece, highres',
     
     // Subject (Character)
-    `${genderTag}, solo, ${input.professionClothing || 'cyberpunk clothing'}, detailed face`,
+    // Use character description if available, otherwise generic clothing
+    `${genderTag}, ${input.professionClothing || 'cyberpunk clothing'}, ${input.characterDescription || 'detailed character'}, detailed face`,
     
     // Action / Context
-    `${actionTag}, ${input.action.slice(0, 50)}`, // Inject raw user action (risky but fast)
+    `${actionTag}, ${input.action.slice(0, 80)}`, // Inject raw user action
     
     // Enemy (if any)
-    input.enemyName ? `fighting ${input.enemyName}, danger` : '',
+    enemyPart,
     
     // Environment
     environment,
