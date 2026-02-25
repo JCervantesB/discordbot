@@ -61,10 +61,10 @@ async function generateSceneNarrative(input: OrchestratorInput, eventContext: Ev
     enemyInstruction,
     
     'ESTRUCTURA OBLIGATORIA:',
-    '- Párrafo 1: DESCRIPCIÓN SENSORIAL del entorno + desarrollo de la acción exacta. Integra el clima, la luz y la atmósfera de la región.',
+    '- Párrafo 1: CONTINUIDAD DIRECTA (IN MEDIA RES). Empieza describiendo la ejecución inmediata de la acción, sin preámbulos ni descripciones ambientales genéricas ("En la penumbra..."). La reacción del entorno debe ser consecuencia de la acción.',
     '- Párrafo 2: CONSECUENCIAS inmediatas + tensión narrativa + 2 opciones implícitas para continuar.',
     '- Perspectiva: Tercera persona cercana (enfocada en emociones/acciones del personaje).',
-    '- Estilo: 2-4 frases por párrafo. Tono épico-melancólico.',
+    '- Estilo: 2-4 frases por párrafo. Tono épico-melancólico. PROHIBIDO comenzar con frases cliché como "El aire...", "La atmósfera...", "En medio de...".',
     '- Detalles sensoriales específicos: sonidos metálicos, olores a ozono/pólvora, texturas rugosas/frías.',
     '- Visuales clave: luces neón parpadeantes, sombras profundas, objetos específicos del entorno.',
     
