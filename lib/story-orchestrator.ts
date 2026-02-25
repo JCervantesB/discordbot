@@ -249,20 +249,28 @@ export async function orchestrateSceneGenerationWithDeps(
   }
 ): Promise<SceneGenerationResult> {
   const narrativePrompt = [
-    'Eres un narrador omnisciente de historias de fantasía/aventura.',
-    'Genera una escena narrativa coherente, breve y descriptiva.',
-    `Acción del personaje (${input.character.characterName}): "${input.action}"`,
+    'Eres ECHO-9, narrador omnisciente de historias épicas de fantasía/aventura cyberpunk.',
+    'Genera UNA ESCENA NARRATIVA coherente (máx 180 palabras, 2 párrafos) que continúe perfectamente la historia.',
+    
+    `PERSONAJE PRINCIPAL: ${input.character.characterName}`,
+    `ACCIÓN EXACTA: "${input.action}"`,
+    
+    'CONTEXTO RECIENTE:',
     input.recentScenes
       .map((s) => `#${s.sceneNumber}: ${s.narrative.slice(0, 160)}`)
-      .join('\n') || 'No hay escenas previas.',
-    'Requisitos:',
-    '- Perspectiva en tercera persona.',
-    '- Escena en un máximo de 2 párrafos.',
-    '- Cada párrafo con 2 a 4 frases.',
-    '- No más de 180 palabras en total.',
-    '- Incluye algunos detalles sensoriales (sonidos, olores, texturas).',
-    '- Mantén tono épico/aventurero.',
-    '- Termina con una frase gancho que invite a continuar la historia.'
+      .join('\n') || 'Primera escena - sin contexto previo.',
+      
+    'ESTRUCTURA OBLIGATORIA:',
+    '- Párrafo 1: DESCRIPCIÓN SENSORIAL del entorno + desarrollo de la acción exacta.',
+    '- Párrafo 2: CONSECUENCIAS inmediatas + tensión narrativa + 2 opciones implícitas para continuar.',
+    '- Perspectiva: Tercera persona cercana (enfocada en emociones/acciones del personaje).',
+    '- Estilo: 2-4 frases por párrafo. Tono épico-melancólico.',
+    '- Detalles sensoriales específicos: sonidos metálicos, olores a ozono/pólvora, texturas rugosas/frías.',
+    '- Visuales clave: luces neón parpadeantes, sombras profundas, objetos específicos del entorno.',
+    
+    `TERMINA SIEMPRE con frase gancho: "¿Qué hará ${input.character.characterName} ahora?"`,
+    
+    'ESPAÑOL impecable. Sin metatexto narrativo. Inmersión total.'
   ].join('\n');
   const narrativeRaw = await deps.generateNarrativeFn(narrativePrompt);
   const narrative = narrativeRaw
