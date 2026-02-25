@@ -86,7 +86,11 @@ async function generateSceneNarrative(input: OrchestratorInput, eventContext: Ev
 }
 
 
-async function designImagePrompt(input: {
+/**
+ * REFACTOR: Deterministic Prompt Builder (No LLM Call)
+ * This eliminates the second LLM latency entirely.
+ */
+function designImagePrompt(input: {
   action: string;
   characterName: string;
   characterDescription: string;
@@ -99,10 +103,10 @@ async function designImagePrompt(input: {
   professionClothing?: string | null;
   enemyName?: string | null;
   enemyDescription?: string | null;
-}) {
+}): string { // Now returns string directly, not Promise
   logStage({ event: 'orchestrator', stage: 'prompt_start' });
 
-  // Mapeo de género a etiquetas técnicas
+  // 1. Gender & Base
   const genderMap: Record<string, string> = {
     femenino: '1girl',
     masculino: '1boy',
@@ -110,73 +114,54 @@ async function designImagePrompt(input: {
     furro: 'furry'
   };
   const genderTag = genderMap[input.characterGender] || '1person';
+  
+  // 2. Region Style (Pre-defined or Fallback)
+  // Extract keywords from regionPromptImage if possible, otherwise use generic
+  const environment = input.regionPromptImage 
+    ? input.regionPromptImage 
+    : 'cyberpunk city, neon lights, ruins, rain, dark atmosphere';
 
-  // Contexto crudo en español para ser procesado
-  const rawContext = [
-    `Character: ${input.characterName} (${genderTag})`,
-    `Description: ${input.characterDescription || 'No description'}`,
-    `Equipment: ${input.professionClothing || 'Standard gear'}`,
-    `Action: ${input.action}`,
-    `Location: ${input.regionSlug || 'Cyberpunk city'} (${input.regionPromptImage || 'Neon lights, ruins'})`,
-    `Narrative: ${input.narrative.slice(0, 200)}`,
-    input.enemyName ? `Enemy: ${input.enemyName} (${input.enemyDescription})` : '',
-  ].filter(Boolean).join('\n');
+  // 3. Action Keywords (Simple Heuristic Extraction)
+  // We take the user action and try to use it directly, assuming English or simple Spanish that might work
+  // ideally we would translate, but for speed we append it. 
+  // Better approach: Generic action tags based on event type if action is complex.
+  const actionTag = 'dynamic pose, cinematic shot'; 
 
-  const prompt = [
-  'You are an expert Stable Diffusion Prompt Engineer specialized in retro Pixel Art for videogames.',
-  'Goal: Convert the Spanish game context into a rich, comma-separated English prompt that perfectly matches the described scene.',
-  'The prompt must clearly describe: main character, their action, region/environment, enemies, camera shot, atmosphere, and color palette.',
-  'Style: 32-bit pixel art, SNES style, retro videogame, dithering, limited color palette, cga colors, clean readable sprites.',
+  // 4. Enemy Handling
+  const enemyTag = input.enemyName 
+    ? `enemy threat, ${input.enemyName}, battle stance` 
+    : 'solo';
 
-  '# Examples',
-  'Input:',
-  'Character: Guerrero (Hombre), Armadura oxidada.',
-  'Action: Corriendo por el desierto.',
-  'Region: Restos Grisáceos (polvo, sol tenue).',
-  'Enemy: Carroñero (armadura reciclada).',
+  // 5. Construct Prompt
+  // Order: Quality > Subject > Action > Environment > Style
+  const parts = [
+    // Quality
+    'best quality, masterpiece, highres',
+    
+    // Subject (Character)
+    `${genderTag}, solo, ${input.professionClothing || 'cyberpunk clothing'}, detailed face`,
+    
+    // Action / Context
+    `${actionTag}, ${input.action.slice(0, 50)}`, // Inject raw user action (risky but fast)
+    
+    // Enemy (if any)
+    input.enemyName ? `fighting ${input.enemyName}, danger` : '',
+    
+    // Environment
+    environment,
+    
+    // Style (Strict Pixel Art)
+    '32-bit pixel art, snes style, retro videogame, dithering, cga colors, limited palette, sharp focus, pixelated'
+  ];
 
-  'Output:',
-  'best quality, masterpiece, 1boy, warrior, male focus, rusted plate armor, heavy armor, metallic texture, running, sprinting, dynamic pose, desert ruins, dusty atmosphere, hazy sunlight, industrial waste, brown and orange palette, enemy presence, scavenger, recycled armor, scrap metal, threatening posture, 32-bit pixel art, snes style, dithering, retro videogame, wide shot, side view',
+  const formatted = parts
+    .filter(p => p && p.length > 0)
+    .join(', ');
 
-  '# Current Task',
-  'You will receive a Spanish context describing character, action, region and enemies in a single block.',
-  'Recreate the scene as faithfully as possible: keep the same region, enemies, actions and mood, expanding them into precise visual tags.',
-  'Focus on: specific objects, terrain, weather, lighting, colors, enemy design, pose and movement of the main character.',
-  'Avoid storytelling sentences; only output visual tags, separated by commas.',
-
-  'Input:',
-  rawContext,
-
-  'Output:',
-  'best quality, masterpiece, ' + genderTag + ','
-].join('\n');
-
-
-  try {
-    const raw = await generateNarrative(prompt);
-    // Limpieza: aseguramos que empiece con el prefijo si el modelo no lo incluyó
-    const prefix = `best quality, masterpiece, ${genderTag},`;
-    let content = raw.replace(/\n/g, ', ').replace(/\s+/g, ' ').trim();
-
-    if (!content.toLowerCase().startsWith('best quality')) {
-      content = prefix + content;
-    }
-
-    // Eliminar duplicados básicos y formatear
-    const tags = content.split(',').map(t => t.trim()).filter(t => t.length > 0);
-    const uniqueTags = [...new Set(tags)];
-    const formatted = uniqueTags.join(', ');
-
-    console.log(`[IMAGE_PROMPT] Generated: ${formatted.slice(0, 100)}...`);
-    logStage({ event: 'orchestrator', stage: 'prompt_done' });
-    return formatted;
-  } catch (error) {
-    console.error('[IMAGE_PROMPT] Error generating prompt:', error);
-    const genderTagFallback = genderMap[input.characterGender] || '1person';
-    const fallbackPrompt = `best quality, masterpiece, ${genderTagFallback}, 32-bit Pixel Art Game, retro style, snes graphics, cyberpunk setting, pixelated, dithering, ${input.regionSlug || 'ruins'}, neon lights, detailed character, high resolution, vivid colors, dramatic lighting, ${input.action.replace(/ /g, ', ')}`;
-    console.log(`[IMAGE_PROMPT] Fallback used`);
-    return fallbackPrompt;
-  }
+  console.log(`[IMAGE_PROMPT] Built Deterministically: ${formatted.slice(0, 100)}...`);
+  logStage({ event: 'orchestrator', stage: 'prompt_done' });
+  
+  return formatted;
 }
 
 
