@@ -80,6 +80,7 @@ async function designImagePrompt(input: {
   action: string;
   characterName: string;
   characterDescription: string;
+  characterGender: string;
   narrative: string;
   regionSlug?: string | null;
   regionPromptImage?: string | null;
@@ -90,16 +91,28 @@ async function designImagePrompt(input: {
   enemyDescription?: string | null;
 }) {
   logStage({ event: 'orchestrator', stage: 'prompt_start' });
+
+  // Mapeo de género a etiquetas técnicas
+  const genderMap: Record<string, string> = {
+    femenino: '1girl',
+    masculino: '1boy',
+    'no binario': 'non-binary',
+    furro: 'furry'
+  };
+  const genderTag = genderMap[input.characterGender] || '1person';
+  const qualityTags = 'best quality, masterpiece';
+  const technicalRenderTags = 'professional lighting, photon mapping, radiosity, physically-based rendering';
+  
   const regionImageStyle = input.regionPromptImage || '';
   
   // Consistencia de Personaje: Protocolo de Atributos Fijos
   const characterVisual = [
-    `Character: ${input.characterName}`,
-    input.professionClothing ? `Outfit: ${input.professionClothing}` : '',
-    input.characterDescription ? `Physical Traits: ${input.characterDescription}` : ''
+    genderTag,
+    input.professionClothing ? input.professionClothing : '',
+    input.characterDescription ? input.characterDescription : ''
   ]
     .filter((part) => part.length > 0)
-    .join('. ');
+    .join(', ');
 
   const enemyVisual =
     input.enemyName || input.enemyDescription
@@ -157,9 +170,9 @@ async function designImagePrompt(input: {
     ...(enemyVisual ? [`HOSTILE ELEMENT: ${enemyVisual}`] : []),
 
     'OUTPUT FORMAT:',
-    'Create a single-line English prompt (max 320 chars) that describes the scene as a 16-bit game screenshot.',
-    'SINTAXIS: [Region Setting] + [Character sprite action/position] + [Key Narrative Element] + [16-bit technical specs].',
-    'STYLE KEYWORDS: 16-bit pixel art, snes style, side-view or 3/4 isometric, detailed sprites, indexed colors, dithering.'
+    `Create a single-line English prompt (max 320 chars) starting with "${qualityTags}, ${genderTag}".`,
+    'SINTAXIS: [Quality Tags] + [Gender Tag] + [Region Setting] + [Character action/position] + [Key Narrative Element] + [Technical Specs].',
+    `TECHNICAL PARAMETERS: ${technicalRenderTags}, 16-bit pixel art, snes style, detailed sprites, indexed colors, dithering.`
   ].join('\n');
 
   try {
@@ -169,7 +182,14 @@ async function designImagePrompt(input: {
     logStage({ event: 'orchestrator', stage: 'prompt_done' });
     return limited;
   } catch {
-    const baseline = `16-bit pixel art, ${input.characterName} in ${regionImageStyle || 'cyberpunk ruins'}, ${input.action}, snes style, vibrant colors`;
+    const genderMap: Record<string, string> = {
+      femenino: '1girl',
+      masculino: '1boy',
+      'no binario': 'non-binary',
+      furro: 'furry'
+    };
+    const genderTagFallback = genderMap[input.characterGender] || '1person';
+    const baseline = `best quality, masterpiece, ${genderTagFallback}, 16-bit pixel art, in ${regionImageStyle || 'cyberpunk ruins'}, ${input.action}, snes style, professional lighting`;
     const singleLine = baseline.replace(/\s+/g, ' ').trim();
     const limited = singleLine.slice(0, 200);
     logStage({ event: 'orchestrator', stage: 'prompt_fallback' });
@@ -197,6 +217,7 @@ export async function orchestrateSceneGeneration(input: OrchestratorInput): Prom
     action: input.action,
     characterName: input.character.characterName,
     characterDescription: input.character.description,
+    characterGender: input.character.gender,
     narrative,
     regionSlug: input.character.currentRegionSlug,
     regionPromptImage: region?.promptImage || null,
@@ -234,7 +255,7 @@ export async function orchestrateSceneGenerationWithDeps(
   input: OrchestratorInput,
   deps: {
     generateNarrativeFn: (prompt: string) => Promise<string>;
-    generatePromptFn: (args: { action: string; characterName: string; narrative: string }) => Promise<string>;
+    generatePromptFn: (args: { action: string; characterName: string; characterGender: string; narrative: string }) => Promise<string>;
     generateImageFn: (prompt: string) => Promise<string>;
     uploadImageFn: (file: string, options?: { folder?: string }) => Promise<string>;
   }
@@ -265,6 +286,7 @@ export async function orchestrateSceneGenerationWithDeps(
   const imagePrompt = await deps.generatePromptFn({
     action: input.action,
     characterName: input.character.characterName,
+    characterGender: input.character.gender,
     narrative
   });
   let imageUrl: string | null = null;
