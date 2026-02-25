@@ -11,7 +11,7 @@ function getVeniceConfig() {
 
 const defaultTextModel = process.env.VENICE_TEXT_MODEL || 'venice-uncensored';
 const defaultImageModel = process.env.VENICE_IMAGE_MODEL || 'venice-sd35';
-const defaultVeniceTimeoutMs = Number(process.env.VENICE_TIMEOUT_MS || 60000);
+const defaultVeniceTimeoutMs = Number(process.env.VENICE_TIMEOUT_MS || 90000);
 
 export async function generateNarrative(prompt: string) {
   const { apiKey, baseURL } = getVeniceConfig();

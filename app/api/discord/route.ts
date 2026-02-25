@@ -16,6 +16,10 @@ import { validateContribution, compileManuscript, summarizeManuscript } from '@/
 import { sql } from 'drizzle-orm';
 import { logSceneGeneration } from '@/lib/logger';
 
+// Aumentar el límite de duración de la función serverless (si es posible en la plataforma)
+export const maxDuration = 300; // 5 minutos para Vercel Pro
+export const dynamic = 'force-dynamic';
+
 const CharacterSchema = z.object({
   name: z.string().min(1).max(50),
   description: z.string().min(1).max(500),
