@@ -158,7 +158,7 @@ async function designImagePrompt(input: {
     '- RESOLUTION: 320x224 internal resolution look, clean integer scaling.',
     
     'VISUAL CONSISTENCY PROTOCOL:',
-    `- CHARACTER: Maintain fixed sprite traits for ${input.characterName}: ${characterVisual}.`,
+    `- CHARACTER TAGS: Always include these tags for ${input.characterName}: ${characterVisual}.`,
     `- ENVIRONMENT: ${regionImageStyle || 'Cyberpunk ruins'}.`,
     `- ATMOSPHERE & COLOR: ${currentPalette} Dynamic pixel lighting, 16-bit dithering.`,
     
@@ -171,7 +171,7 @@ async function designImagePrompt(input: {
 
     'OUTPUT FORMAT:',
     `Create a single-line English prompt (max 320 chars) starting with "${qualityTags}, ${genderTag}".`,
-    'SINTAXIS: [Quality Tags] + [Gender Tag] + [Region Setting] + [Character action/position] + [Key Narrative Element] + [Technical Specs].',
+    'SINTAXIS: [Quality Tags] + [Gender Tag] + [Character Tags (Clothing/Physical)] + [Region Setting] + [Character action/position] + [Key Narrative Element] + [Technical Specs].',
     `TECHNICAL PARAMETERS: ${technicalRenderTags}, 16-bit pixel art, snes style, detailed sprites, indexed colors, dithering.`
   ].join('\n');
 
@@ -189,7 +189,9 @@ async function designImagePrompt(input: {
       furro: 'furry'
     };
     const genderTagFallback = genderMap[input.characterGender] || '1person';
-    const baseline = `best quality, masterpiece, ${genderTagFallback}, 16-bit pixel art, in ${regionImageStyle || 'cyberpunk ruins'}, ${input.action}, snes style, professional lighting`;
+    // Fallback mejorado con rasgos visuales
+    const traits = characterVisual ? `, ${characterVisual}` : '';
+    const baseline = `best quality, masterpiece, ${genderTagFallback}${traits}, 16-bit pixel art, in ${regionImageStyle || 'cyberpunk ruins'}, ${input.action}, snes style, professional lighting`;
     const singleLine = baseline.replace(/\s+/g, ' ').trim();
     const limited = singleLine.slice(0, 200);
     logStage({ event: 'orchestrator', stage: 'prompt_fallback' });
