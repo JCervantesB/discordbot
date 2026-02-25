@@ -49,6 +49,7 @@ async function generateSceneNarrative(input: OrchestratorInput, eventContext: Ev
     'Genera UNA ESCENA NARRATIVA coherente (máx 180 palabras, 2 párrafos) que continúe perfectamente la historia.',
     
     `PERSONAJE PRINCIPAL: ${input.character.characterName}`,
+    `FACCIÓN: ${faction?.name || 'Sin facción'} (${faction?.description || 'Nómada independiente'})`,
     `ACCIÓN EXACTA: "${input.action}"`,
     `REGIÓN ACTUAL: ${region?.name || 'Zona Desconocida'} (${region?.description || 'Entorno misterioso'})`,
     
@@ -248,11 +249,13 @@ export async function orchestrateSceneGenerationWithDeps(
     uploadImageFn: (file: string, options?: { folder?: string }) => Promise<string>;
   }
 ): Promise<SceneGenerationResult> {
+  const faction = await getPrimaryFactionForCharacter(input.character.id);
   const narrativePrompt = [
     'Eres ECHO-9, narrador omnisciente de historias épicas de fantasía/aventura cyberpunk.',
     'Genera UNA ESCENA NARRATIVA coherente (máx 180 palabras, 2 párrafos) que continúe perfectamente la historia.',
     
     `PERSONAJE PRINCIPAL: ${input.character.characterName}`,
+    `FACCIÓN: ${faction?.name || 'Sin facción'} (${faction?.description || 'Nómada independiente'})`,
     `ACCIÓN EXACTA: "${input.action}"`,
     
     'CONTEXTO RECIENTE:',
