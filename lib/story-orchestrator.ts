@@ -102,45 +102,52 @@ async function designImagePrompt(input: {
   
   // Contexto crudo en español para ser procesado
   const rawContext = [
-    `Character Name: ${input.characterName}`,
-    `Gender Tag: ${genderTag}`,
-    `Character Description (Spanish): ${input.characterDescription || 'No description'}`,
-    `Clothing/Equipment (Spanish): ${input.professionClothing || 'Standard gear'}`,
-    `Current Action (Spanish): ${input.action}`,
-    `Region/Setting: ${input.regionSlug || 'Cyberpunk city'}`,
-    `Environment Style: ${input.regionPromptImage || 'Neon lights, ruins'}`,
-    `Narrative Context: ${input.narrative.slice(0, 300)}`,
-    input.enemyName ? `ENEMY PRESENT: ${input.enemyName}` : 'NO ENEMY PRESENT',
-    input.enemyDescription ? `ENEMY VISUALS: ${input.enemyDescription}` : ''
+    `Character: ${input.characterName} (${genderTag})`,
+    `Description: ${input.characterDescription || 'No description'}`,
+    `Equipment: ${input.professionClothing || 'Standard gear'}`,
+    `Action: ${input.action}`,
+    `Location: ${input.regionSlug || 'Cyberpunk city'} (${input.regionPromptImage || 'Neon lights, ruins'})`,
+    `Narrative: ${input.narrative.slice(0, 200)}`,
+    input.enemyName ? `Enemy: ${input.enemyName} (${input.enemyDescription})` : '',
   ].filter(Boolean).join('\n');
 
   const prompt = [
-    'ROLE: You are an expert Stable Diffusion Prompt Engineer specialized in 32-bit Pixel Art Game.',
-    'TASK: Convert the provided Spanish context into a highly detailed, comma-separated list of ENGLISH tags.',
+    'You are an expert Stable Diffusion Prompt Engineer for Pixel Art.',
+    'Task: Translate the Spanish context into a detailed, comma-separated English prompt.',
+    'Style: 32-bit Pixel Art, SNES style, dithering, cga colors.',
     
-    'INPUT CONTEXT:',
+    '# Examples',
+    'Input:',
+    'Character: Guerrero (Hombre), Armadura oxidada.',
+    'Action: Corriendo por el desierto.',
+    'Region: Restos Grisáceos (polvo, sol tenue).',
+    'Enemy: Carroñero (armadura reciclada).',
+    
+    'Output:',
+    'best quality, masterpiece, 1boy, warrior, male focus, rusted plate armor, heavy armor, metallic texture, running, sprinting, dynamic pose, desert ruins, dusty atmosphere, hazy sunlight, industrial waste, brown and orange palette, enemy presence, scavenger, recycled armor, scrap metal, threatening posture, 32-bit pixel art, snes style, dithering, wide shot, side view',
+    
+    '# Current Task',
+    'Input:',
     rawContext,
     
-    'STRICT OUTPUT RULES:',
-    '1. LANGUAGE: Output must be 100% ENGLISH. Translate all Spanish descriptions to English tags.',
-    '2. FORMAT: Comma-separated tags only (e.g., tag1, tag2, tag3). No sentences.',
-    '3. LENGTH: You must generate at least 30 tags to ensure high detail.',
-    '4. STYLE: Enforce "32-bit Pixel Art Game, snes style, retro game aesthetics, pixelated, dithering, cga colors".',
-    '5. DECONSTRUCTION: Break down descriptions into specific visual tags (e.g., "chaqueta roja" -> "red jacket, open jacket, leather texture, high collar").',
-    '6. PRIORITY: If an ENEMY is present in context, you MUST include specific tags for it. If "NO ENEMY PRESENT", DO NOT invent one.',
-    '7. START EXACTLY WITH: "best quality, masterpiece, [gender_tag], ..."',
-    '8. COMPOSITION: Include tags for camera angle (e.g., "side view", "wide shot") and lighting (e.g., "volumetric lighting", "neon glow").',
-    
-    'Do not output explanations. Only the final prompt string.'
+    'Output:',
+    'best quality, masterpiece, ' + genderTag + ','
   ].join('\n');
 
   try {
     const raw = await generateNarrative(prompt);
-    // Limpieza agresiva para asegurar formato
-    const singleLine = raw.replace(/\n/g, ', ').replace(/\s+/g, ' ').trim();
-    // Asegurar que no haya español (heurística básica)
-    // El LLM debería encargarse, pero formateamos las comas
-    const formatted = singleLine.split(',').map(t => t.trim()).filter(t => t.length > 0).join(', ');
+    // Limpieza: aseguramos que empiece con el prefijo si el modelo no lo incluyó
+    const prefix = `best quality, masterpiece, ${genderTag},`;
+    let content = raw.replace(/\n/g, ', ').replace(/\s+/g, ' ').trim();
+    
+    if (!content.toLowerCase().startsWith('best quality')) {
+      content = prefix + content;
+    }
+    
+    // Eliminar duplicados básicos y formatear
+    const tags = content.split(',').map(t => t.trim()).filter(t => t.length > 0);
+    const uniqueTags = [...new Set(tags)];
+    const formatted = uniqueTags.join(', ');
     
     console.log(`[IMAGE_PROMPT] Generated: ${formatted.slice(0, 100)}...`);
     logStage({ event: 'orchestrator', stage: 'prompt_done' });
