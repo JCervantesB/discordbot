@@ -122,10 +122,31 @@ function designImagePrompt(input: {
     : 'cyberpunk city, neon lights, ruins, rain, dark atmosphere';
 
   // 3. Action Keywords (Simple Heuristic Extraction)
-  // We take the user action and try to use it directly, assuming English or simple Spanish that might work
-  // ideally we would translate, but for speed we append it. 
-  // Better approach: Generic action tags based on event type if action is complex.
-  const actionTag = 'dynamic pose, cinematic shot'; 
+  // We use a dictionary-based translation to inject dynamic visual tags from the user's action
+  const actionTagsMap: Record<string, string> = {
+    'correr': 'running, sprinting, motion blur, dynamic pose',
+    'atacar': 'attacking, combat pose, wielding weapon, aggressive',
+    'disparar': 'shooting, firing weapon, muzzle flash, recoil',
+    'esconderse': 'hiding, stealth, crouching, shadows',
+    'investigar': 'investigating, looking closely, examining, flashlight',
+    'hablar': 'talking, conversation, gesturing, social interaction',
+    'descansar': 'resting, sitting, relaxed pose, campfire',
+    'hackear': 'hacking, typing, holographic interface, concentration',
+    'explorar': 'exploring, walking, looking around, wide shot'
+  };
+
+  // Simple keyword matching
+  let actionDynamicTags = 'dynamic pose, cinematic shot';
+  const lowerAction = input.action.toLowerCase();
+  
+  for (const [key, tags] of Object.entries(actionTagsMap)) {
+    if (lowerAction.includes(key)) {
+      actionDynamicTags = tags;
+      break;
+    }
+  }
+
+  const actionTag = actionDynamicTags; 
 
   // 4. Enemy Handling
   // Use enemyTag if defined, otherwise fallback to 'solo' in the parts array
