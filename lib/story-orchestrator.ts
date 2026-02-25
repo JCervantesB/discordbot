@@ -124,7 +124,7 @@ async function designImagePrompt(input: {
     'STRICT OUTPUT RULES:',
     '1. LANGUAGE: Output must be 100% ENGLISH. Translate all Spanish descriptions to English tags.',
     '2. FORMAT: Comma-separated tags only (e.g., tag1, tag2, tag3). No sentences.',
-    '3. LENGTH: You must generate at least 50 tags to ensure extreme detail.',
+    '3. LENGTH: You must generate at least 30 tags to ensure high detail.',
     '4. STYLE: Enforce "32-bit Pixel Art Game, snes style, retro game aesthetics, pixelated, dithering, cga colors".',
     '5. DECONSTRUCTION: Break down descriptions into specific visual tags (e.g., "chaqueta roja" -> "red jacket, open jacket, leather texture, high collar").',
     '6. PRIORITY: If an ENEMY is present in context, you MUST include specific tags for it. If "NO ENEMY PRESENT", DO NOT invent one.',
