@@ -18,6 +18,18 @@ const characterCommand = {
       required: true
     },
     {
+      name: 'gender',
+      type: ApplicationCommandOptionType.String,
+      description: 'Género del personaje',
+      required: true,
+      choices: [
+        { name: 'Masculino', value: 'masculino' },
+        { name: 'Femenino', value: 'femenino' },
+        { name: 'No Binario', value: 'no binario' },
+        { name: 'Furro', value: 'furro' }
+      ]
+    },
+    {
       name: 'faction',
       type: ApplicationCommandOptionType.String,
       description: 'Facción del personaje (opcional)',
