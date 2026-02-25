@@ -155,11 +155,33 @@ function designImagePrompt(input: {
     ? `enemy threat, ${input.enemyName}, battle stance, dangerous presence` 
     : 'solo';
 
-  // 5. Construct Prompt
-  // Order: Quality > Subject > Action > Environment > Style
+  // 5. Event Atmosphere Injection
+  // We map the eventType to specific atmospheric and visual tags to match the narrative chaos
+  const eventAtmosphereMap: Record<string, string> = {
+    'hostile_encounter': 'combat scene, tension, weapon effects, aggressive atmosphere',
+    'environmental_hazard': 'natural disaster, crumbling buildings, debris, dust clouds, shaking ground, chaotic scene, destruction',
+    'resource_find': 'mysterious glow, treasure discovery, spotlight on object, detailed item',
+    'equipment_gain': 'tech upgrade, new gear, shiny metal, detailed equipment',
+    'equipment_loss': 'broken gear, damaged equipment, sparks, smoke, despair',
+    'rest_refuge': 'calm atmosphere, campfire, safe zone, warm lighting, resting',
+    'narrative_twist': 'surreal atmosphere, mysterious symbol, dramatic lighting, revelation'
+  };
+
+  const eventAtmosphere = input.eventType && eventAtmosphereMap[input.eventType] 
+    ? eventAtmosphereMap[input.eventType] 
+    : 'cinematic lighting';
+
+  // 6. Construct Prompt
+  // Order: Style (First for strength) > Quality > Event/Atmosphere > Subject > Action > Environment
   const parts = [
+    // Style (Strict Pixel Art - Moved to front for priority)
+    '(32-bit pixel art:1.3), (snes style:1.2), (retro videogame:1.2), pixelated, dithering, cga colors, limited palette, sharp focus',
+
     // Quality
     'best quality, masterpiece, highres',
+    
+    // Event Atmosphere (Crucial for context match)
+    eventAtmosphere,
     
     // Subject (Character)
     // Use character description if available, otherwise generic clothing
@@ -172,10 +194,7 @@ function designImagePrompt(input: {
     enemyPart,
     
     // Environment
-    environment,
-    
-    // Style (Strict Pixel Art)
-    '32-bit pixel art, snes style, retro videogame, dithering, cga colors, limited palette, sharp focus, pixelated'
+    environment
   ];
 
   const formatted = parts
